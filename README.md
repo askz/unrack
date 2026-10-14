@@ -42,12 +42,6 @@ builds in CI; the new file import/export bridge still needs a test on a phone.
 
 - **Mute and PEQ-band bypass have no readback** on this device. After connecting they are
   shown as unknown (`?`) until you set them.
-- **Gain below −28 dB**: the linear mapping (0 dB = raw 280, 10 raw units/dB) is verified from
-  −28 to +12 dB; the device's raw 0 is its minimum, so lower values are not offered.
-- **Compressor/gate times** are passed through as raw values. Factory defaults read back as
-  49/99/499 where the vendor editor shows 50/100/500 ms, suggesting `ms = raw + 1`
-  (unconfirmed).
-
 See [`PROTOCOL.md`](PROTOCOL.md) for the measured protocol, including request/reply rules and
 timing.
 
@@ -94,12 +88,17 @@ store facade.
 - [`web/`](web/): protocol codec, transport, state and UI (also bundled into the Android shell).
 - [`android/`](android/): WebView shell + Kotlin USB-host and file bridges.
 - [`docs/CAPTURING.md`](docs/CAPTURING.md): recording a USB session to help support more devices.
+- [`docs/FIRMWARE.md`](docs/FIRMWARE.md): the vendor firmware updater, its embedded images and
+  the bootloader protocol.
 
 ## Legal
 
-Independent, clean-room interoperability implementation: the protocol was developed by
-observing the device's USB-HID traffic and probing the device. "the t.racks" is a trademark of
-Thomann; this project is not affiliated with or endorsed by Thomann.
+Independent interoperability implementation. The protocol was developed by observing the
+device's USB-HID traffic and probing the device; the vendor's firmware updater and the firmware
+images it carries were also analysed statically for interoperability (see
+[`docs/FIRMWARE.md`](docs/FIRMWARE.md)). No vendor code or firmware is included in this
+repository. "the t.racks" is a trademark of Thomann; this project is not affiliated with or
+endorsed by Thomann.
 
 Licensed under the **GNU AGPL-3.0-or-later** (see [`LICENSE`](LICENSE)): any distributed or
 network-served derivative must publish its source under the same terms.

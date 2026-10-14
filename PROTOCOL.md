@@ -68,7 +68,7 @@ Total frame = N+8 bytes (≤ 64). At the codec layer the reply payload is read a
 | `0x40` | poll in/out audio **levels** | – (reply carries 8 levels) |
 | `0x35` | **mute** | `[chan, on]` |
 | `0x36` | **polarity** invert | `[chan, invert]` |
-| `0x34` | **level/gain** | `[chan, val16]` raw 0–400; **0 dB=280, +12 dB=400, 10 units/dB** (linear in normal range, floors at raw 0 ≈ −60 dB) |
+| `0x34` | **level/gain** | `[chan, val16]` raw 0–400, two segments: **raw ≥ 80: dB=(raw−280)/10**; **raw < 80: dB=raw/2−60**; raw 0 = hard mute (firmware-confirmed) |
 | `0x33` | **PEQ band** | `[chan, band, gain16, freq16, q8, type8, bypass8]` (capture-calibrated) |
 | `0x26` | **set name** | 14 ASCII bytes |
 | `0x21`/`0x20` | **store / recall preset** | `[slot]` |
@@ -81,11 +81,11 @@ routing, linking) is exposed by the app.
 **Full DSP-block opcodes (observed, one control at a time):**
 | code | block | payload | notes |
 |------|-------|---------|-------|
-| `0x30` | compressor | `[chan, ratio, knee, attack16, release16, threshold16]` | ratio idx 0–15 (1:1.0…Limit); knee 0–12 dB; attack/release ms; **threshold raw=(dB+90)·2** |
+| `0x30` | compressor | `[chan, ratio, knee, attack16, release16, threshold16]` | ratio idx 0–14 into `[1.0, 1.1, 1.3, 1.5, 1.7, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 8.0, 10.0, 20.0]` (firmware table at `0xa52c`); knee 0–12 dB; **attack/release raw, ms = raw + 1** (firmware-confirmed); **threshold raw=(dB+90)·2** |
 | `0x31` | crossover LPF | `[chan, freq16, slope]` | **freq Hz = 19.7·2^(raw/30)**, raw 0–300 (30 steps/oct — coarser than PEQ); slope codes below |
 | `0x32` | crossover HPF | `[chan, freq16, slope]` | same freq scale as LPF |
-| `0x33` | PEQ band | `[chan, band, gain16, freq16, q8, type8, bypass8]` | **gain raw 0–240, 0 dB=120, 0.1 dB/step** (`dB=(raw−120)/10`); **freq = 16-bit log index, Hz=19.7·2^(idx/30)** (idx 0–300, *same scale as crossover*); **q8** single byte (Q scale provisional); type below. NB gain comes first (not RBJ order) — capture-verified (40.3 Hz = idx 31) |
-| `0x34` | level/gain | `[chan, val16]` | raw 0–400; **0 dB=280, +12 dB=400, 10/dB** (factory default of every channel reads back 280) |
+| `0x33` | PEQ band | `[chan, band, gain16, freq16, q8, type8, bypass8]` | **gain raw 0–240, 0 dB=120, 0.1 dB/step** (`dB=(raw−120)/10`); **freq = 16-bit log index, Hz=19.7·2^(idx/30)** (idx 0–300, *same scale as crossover*); **q8** single byte, **exponential `Q = 128 / 1.0594^(100−q8)`** (q8 16 = Q 1.0, every +12 doubles Q, q8 100 = Q 128 — firmware-confirmed, see [`docs/FIRMWARE.md`](docs/FIRMWARE.md)); type below. NB gain comes first (not RBJ order) — capture-verified (40.3 Hz = idx 31) |
+| `0x34` | level/gain | `[chan, val16]` | raw 0–400; **raw ≥ 80 (−20..+12 dB): dB=(raw−280)/10**, 0.1 dB/step, 0 dB=280 (factory default of every channel reads back 280); **raw < 80: dB=raw/2−60**, 0.5 dB/step; **raw 0 = hard mute**. Firmware converters `sub_6880` (inputs) / `sub_6830` (outputs) compute `10^(x/200)·2^24` with `x = raw−280` or `5·raw−600` (see [`docs/FIRMWARE.md`](docs/FIRMWARE.md)) |
 | `0x35` | mute | `[chan, on]` | |
 | `0x36` | polarity | `[chan, invert]` | |
 | `0x38` | delay | `[chan, samples16]` | **48 kHz**; ms=samples/48; max 32640=680 ms |
@@ -101,9 +101,16 @@ blocks (reply code `0x24`, 50 bytes each: name + DSP params); `0x12`→finalize 
 then steady `0x40` level polling. (`0x52` also returns a longer version string, e.g.
 `"4x4MINIPRO V010 20230106A"`.)
 
-**Level reply (`0x40`)** — reply `[01,00,N=0x1c,0x40, …27 data bytes]`. 8 channel levels
-sit at data offsets `2,5,8,…,23` (stride 3), order **In A–D, Out 1–4**; observed range ≈0–80.
-Decoded in `web/src/protocol/readback.ts` (`levelsFromReply`), normalised ÷72 for the meters.
+**Level reply (`0x40`)** — reply `[01,00,N=0x1c,0x40, …27 data bytes]`. 8 channels × 3 bytes,
+order **In A–D, Out 1–4**. Each triplet `[d0, d1, d2]` is a 32-bit linear DSP level word packed as
+`word = d1<<24 | d0<<16 | d2<<8` (bits 7..0 dropped; packing firmware-confirmed, see
+[`docs/FIRMWARE.md`](docs/FIRMWARE.md)); **full scale = 2^24** (inferred from the DSP's 8.24
+format), so `dBFS = 20·log10(word / 2^24)`.
+Data byte 24 is the DSP status word's low byte, bytes 25–26 are GPIO reads. Idle hardware reads
+≈ −87 dBFS (inputs) and −75.5 dBFS (outputs); with Out 1 at 0 dB fed only by In A, Out 1 − In A
+measured +0.25 dB median on programme audio. Decoded in `web/src/protocol/readback.ts`
+(`levelsDbFromReply`; `levelsFromReply` maps −72..0 dBFS onto the 0..1 meters). Earlier builds read
+only `d2` (bits 15..8), which wraps every 256 counts and made the meters look random.
 
 **Channel-state image (`0x27`→`0x24`)** — the nine `0x24` pages each carry `[idx, …50 bytes]`;
 concatenating pages 0–8 (50 B each) rebuilds a **450-byte preset image**. All field offsets
@@ -121,7 +128,9 @@ below are **probe-verified** (wrote distinctive known values, read back, matched
 - **Mute has NO readback.** Empirically, muting changes *none* of the device's readbacks
   (`0x10`/`0x14`/`0x22`/`0x24`/`0x2c`/`0x40` all unchanged) — mute state is held separately from
   the per-channel record array that `0x27`/`0x24` serializes, and no opcode the editor uses
-  exposes it. So neither the editor nor this app can restore mute on connect; both default to
+  exposes it. The firmware confirms this: the `0x35` handler keeps mute in two RAM half-words
+  (outputs/inputs), pushes them to DSP coefficients, and no command handler ever returns them.
+  So neither the editor nor this app can restore mute on connect; both default to
   un-muted. `0x22` is a static `ff ff 00 00…` channel-present/link map, **not** mute. PEQ
   per-band **bypass** also isn't in the image (command-only).
 
@@ -147,9 +156,11 @@ The editor quantizes every value to these encodings before sending
 compressor, gate, gain and routing, reads the preset image back and checks that the device
 holds exactly the model's values (verified on `4x4MINIPRO V010 20230106A`).
 
-**Remaining gaps:** PEQ Q encoding (`q8`) is golden-confirmed at the values used but its full
-range vs the editor's display isn't swept; mute has no readback (defaults un-muted on connect);
-a handful of low opcodes seen in the startup handshake are unmapped readback variants.
-Compressor/gate times: the factory defaults read back as raw 49/99/499 while the editor's
-defaults are 50/100/500 ms, which suggests `ms = raw + 1`; unconfirmed, so times are still
-passed through raw.
+**Firmware cross-check:** static analysis of the vendor MCU image settled the encodings that
+capture alone left open (see [`docs/FIRMWARE.md`](docs/FIRMWARE.md)). Confirmed from the image:
+the PEQ Q curve (`Q = 128 / 1.0594^(100−q8)`, now used by the codec instead of the earlier linear
+guess), PEQ frequency (`19.72·2^(idx/30)`), the compressor ratio table, compressor/gate time
+scaling (`ms = raw + 1`), and that mute has no query path.
+
+**Remaining gaps:** a handful of low opcodes seen in the startup handshake are unmapped readback
+variants; compressor/gate times are now scaled by `ms = raw + 1` per the firmware.
