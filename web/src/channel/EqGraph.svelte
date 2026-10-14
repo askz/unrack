@@ -8,6 +8,7 @@
   import type { ChannelEq, Crossover, PeqBand } from "../eq/types.ts";
   import { PEQ_GAIN_RANGE } from "../state/params.ts";
   import { GAINLESS_PEQ_TYPES } from "../ui/labels.ts";
+  import { attachWheel } from "../ui/wheel.ts";
 
   interface Props {
     eq: ChannelEq;
@@ -101,24 +102,21 @@
     onend();
   }
 
-  /** Wheel over a band handle changes that band's Q (elsewhere the page scrolls normally). */
-  function onWheel(event: WheelEvent): void {
-    const handle = (event.target as Element).closest<SVGGElement>("[data-band]");
-    if (!handle) return;
-    const index = Number(handle.dataset.band);
-    const band = eq.bands[index];
-    if (!band) return;
-    event.preventDefault();
-    onselect(index);
-    const q = bwOctToQ(band.bwOct, band.freqHz);
-    const next = Math.max(Q_MIN, Math.min(Q_MAX, q * (event.deltaY < 0 ? WHEEL_Q_FACTOR : 1 / WHEEL_Q_FACTOR)));
-    onband(index, { ...band, bwOct: qToBwOct(next, band.freqHz) });
-  }
+  const handleOf = (event: Event) => (event.target as Element).closest<SVGGElement>("[data-band]");
 
-  $effect(() => {
-    svg.addEventListener("wheel", onWheel, { passive: false });
-    return () => svg.removeEventListener("wheel", onWheel);
-  });
+  /** Wheel over a band handle changes that band's Q (elsewhere the page scrolls normally). */
+  $effect(() => attachWheel(svg, {
+    accepts: (event) => handleOf(event) !== null,
+    step: (steps, multiplier, event) => {
+      const index = Number(handleOf(event)!.dataset.band);
+      const band = eq.bands[index];
+      if (!band) return;
+      onselect(index);
+      const q = bwOctToQ(band.bwOct, band.freqHz);
+      const next = Math.max(Q_MIN, Math.min(Q_MAX, q * Math.pow(WHEEL_Q_FACTOR, steps * multiplier)));
+      onband(index, { ...band, bwOct: qToBwOct(next, band.freqHz) });
+    },
+  }));
 
   const crossovers = $derived([
     { kind: "hpf" as const, xo: eq.hpf },

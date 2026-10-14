@@ -1,11 +1,12 @@
 <script lang="ts">
   // Numeric entry: type a value (Enter commits, Escape reverts), ArrowUp/Down or the
-  // wheel (while focused) to step — Shift ×10, Alt ×0.1 — or drag vertically with a
-  // mouse. Linear or logarithmic stepping. The value is one-way: changes go out
+  // wheel (hovering is enough) to step — Shift ×10, Alt ×0.1 — or drag vertically with
+  // a mouse. Linear or logarithmic stepping. The value is one-way: changes go out
   // through onchange and come back (normalized) through `value`.
   import { tick } from "svelte";
   import type { SyncEntry } from "../state/editor.ts";
   import { parseNumber } from "./format.ts";
+  import { attachWheel } from "./wheel.ts";
 
   interface Props {
     value: number;
@@ -96,18 +97,14 @@
     }
   }
 
-  function onWheel(event: WheelEvent): void {
-    if (disabled || document.activeElement !== input) return;
-    event.preventDefault();
-    draft = null;
-    emit(stepBy(value, (event.deltaY < 0 ? 1 : -1) * multiplier(event)));
-    void resync();
-  }
-
-  $effect(() => {
-    input.addEventListener("wheel", onWheel, { passive: false });
-    return () => input.removeEventListener("wheel", onWheel);
-  });
+  $effect(() => attachWheel(input, {
+    accepts: () => !disabled,
+    step: (steps, multiplier) => {
+      draft = null;
+      emit(stepBy(value, steps * multiplier));
+      void resync();
+    },
+  }));
 
   function onPointerDown(event: PointerEvent): void {
     if (disabled || event.pointerType === "touch" || document.activeElement === input || event.button !== 0) return;
