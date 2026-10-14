@@ -308,10 +308,9 @@ export function allParams(): ParamRef[] {
   return refs;
 }
 
-/** Human label, e.g. "Out 1 PEQ band 3" (uses the model's channel names when given). */
-export function describeParam(ref: ParamRef, model?: DeviceModel): string {
-  const channel = model?.channels[ref.ch]?.name || channelLabel(ref.ch);
-  return `${channel} ${specFor(ref).describe(ref)}`;
+/** Human label, e.g. "Out 1 PEQ band 3"; nameOf gives the channel names (default: fixed labels). */
+export function describeParam(ref: ParamRef, nameOf: (ch: number) => string = channelLabel): string {
+  return `${nameOf(ref.ch) || channelLabel(ref.ch)} ${specFor(ref).describe(ref)}`;
 }
 
 /** Current value in the model; null for values the device cannot report (mute). */

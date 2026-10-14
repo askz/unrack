@@ -148,7 +148,7 @@ export class DeviceStore {
   resendUnsynced(): void { void this.editor.resendUnsynced(); }
 
   private change(ref: ParamRef, value: ParamValue, merge = true): void {
-    this.guard(describeParam(ref, this.edit.model), () => this.editor.set(ref, value, { merge }));
+    this.guard(describeParam(ref, this.editor.nameOf), () => this.editor.set(ref, value, { merge }));
   }
 
   private guard(label: string, op: () => Promise<boolean>): void {

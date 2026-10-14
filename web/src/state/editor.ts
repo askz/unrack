@@ -34,6 +34,8 @@ export interface EditorDeps {
   cal: Calibration;
   onError(label: string, error: unknown): void;
   now?(): number;
+  /** Channel name for undo and error labels (default: the model's channel name). */
+  channelName?(ch: number): string;
 }
 
 type Value = ParamValue | null;
@@ -71,13 +73,16 @@ export class Editor {
     return readParam(this.state.model, ref);
   }
 
+  /** Name used in labels for a channel address. */
+  readonly nameOf = (ch: number): string => this.deps.channelName?.(ch) ?? this.state.model.channels[ch]?.name ?? "";
+
   /** A user edit. Consecutive edits of the same parameter merge into one undo step unless merge is false. */
   set(ref: ParamRef, value: ParamValue, options: { label?: string; merge?: boolean } = {}): Promise<boolean> {
     const normalized = normalizeParam(ref, value, this.deps.cal);
     const sends: Promise<boolean>[] = [];
     const changes = this.linkedRefs(ref).flatMap((target) => this.apply(target, normalized, sends));
     if (changes.length === 0) return Promise.resolve(true);
-    const label = options.label ?? describeParam(ref, this.state.model);
+    const label = options.label ?? describeParam(ref, this.nameOf);
     this.history.record(label, changes, options.merge === false ? undefined : paramKey(ref));
     this.touch();
     return allSucceeded(sends);
@@ -116,9 +121,8 @@ export class Editor {
   copyEq(src: number, dst: number, label?: string): Promise<boolean> {
     this.requireOutput(src);
     this.requireOutput(dst);
-    const model = this.state.model;
     const assignments = eqParams(dst).map((ref) => ({ ref, value: this.get({ ...ref, ch: src }) }));
-    return this.setMany(label ?? `Copy EQ ${model.channels[src]!.name} → ${model.channels[dst]!.name}`, assignments);
+    return this.setMany(label ?? `Copy EQ ${this.nameOf(src)} → ${this.nameOf(dst)}`, assignments);
   }
 
   /** Link two outputs' EQ (b takes a's EQ now; later edits to either mirror to the other). */
@@ -129,8 +133,7 @@ export class Editor {
     this.unlink(a);
     this.unlink(b);
     this.state.links = { ...this.state.links, [a]: b, [b]: a };
-    const model = this.state.model;
-    return this.copyEq(a, b, `Link EQ ${model.channels[a]!.name} + ${model.channels[b]!.name}`);
+    return this.copyEq(a, b, `Link EQ ${this.nameOf(a)} + ${this.nameOf(b)}`);
   }
 
   unlink(ch: number): void {
@@ -214,7 +217,7 @@ export class Editor {
             this.state.sync[key] = { status: "offline" };
           } else {
             this.state.sync[key] = { status: "failed", error: messageOf(error) };
-            this.deps.onError(describeParam(ref, this.state.model), error);
+            this.deps.onError(describeParam(ref, this.nameOf), error);
           }
           return false;
         },
