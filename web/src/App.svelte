@@ -9,6 +9,7 @@
   import OutputView from "./views/OutputView.svelte";
   import SystemView from "./views/SystemView.svelte";
   import SetupView from "./views/SetupView.svelte";
+  import SettingsView from "./views/SettingsView.svelte";
   import { OUT_BASE } from "./state/model.ts";
   import { settings } from "./state/settings.svelte.ts";
   import { appearanceVars } from "./ui/appearance.ts";
@@ -74,10 +75,20 @@
     <div class="notice">Offline: edits change this screen only. Connecting loads the device's current settings.</div>
   {/if}
 
+  {#if typeof ui.view === "number" && settings.value.hidden.includes(ui.view)}
+    {@const shown = ui.view}
+    <div class="notice">
+      Hidden: {device.displayName(shown)} is left out of the tabs and the Overview.
+      <button class="ghost" onclick={() => settings.update({ hidden: settings.value.hidden.filter((ch) => ch !== shown) })}>Show</button>
+    </div>
+  {/if}
+
   {#if ui.view === "setup"}
     <SetupView />
   {:else if ui.view === "system"}
     <SystemView />
+  {:else if ui.view === "settings"}
+    <SettingsView />
   {:else if typeof ui.view === "number"}
     {#if ui.view < OUT_BASE}
       {#key ui.view}<InputView ch={ui.view} />{/key}

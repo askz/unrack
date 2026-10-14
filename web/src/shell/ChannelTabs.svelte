@@ -1,11 +1,17 @@
 <script lang="ts">
-  // Tab strip: Overview, Setup, the 8 channels (with live level and state badges), System.
+  // Tab strip: Overview, Setup, the channels not hidden in Settings (with live level and
+  // state badges), System, Settings.
   import { device } from "../state/device.svelte.ts";
+  import { settings } from "../state/settings.svelte.ts";
   import { ui, type View } from "../state/ui.svelte.ts";
-  import { CHANNEL_COUNT } from "../state/model.ts";
+  import { CHANNEL_COUNT, OUT_BASE } from "../state/model.ts";
   import Meter from "../ui/Meter.svelte";
 
-  const views: View[] = ["overview", "setup", ...Array.from({ length: CHANNEL_COUNT }, (_, i) => i), "system"];
+  const channels = Array.from({ length: CHANNEL_COUNT }, (_, i) => i);
+  const views = $derived<View[]>([
+    "overview", "setup", ...channels.filter((ch) => !settings.value.hidden.includes(ch)), "system", "settings",
+  ]);
+  const firstOutput = $derived(views.find((view) => typeof view === "number" && view >= OUT_BASE));
   const NAMED_TITLES: Record<Exclude<View, number>, string> = { overview: "Overview", setup: "Setup", system: "System", settings: "Settings" };
 
   function title(view: View): string {
@@ -45,7 +51,7 @@
       role="tab"
       class="tab"
       class:channel={channel !== null}
-      class:gap={view === 4 || view === "system"}
+      class:gap={view === firstOutput || view === "system"}
       aria-selected={ui.view === view}
       tabindex={ui.view === view ? 0 : -1}
       data-view={view}

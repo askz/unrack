@@ -7,6 +7,7 @@
   import { bwOctToQ, qToBwOct } from "../eq/biquad.ts";
   import type { ChannelEq, Crossover, PeqBand } from "../eq/types.ts";
   import { PEQ_GAIN_RANGE } from "../state/params.ts";
+  import { settings } from "../state/settings.svelte.ts";
   import { GAINLESS_PEQ_TYPES } from "../ui/labels.ts";
   import { attachWheel } from "../ui/wheel.ts";
 
@@ -24,14 +25,21 @@
 
   const F_MIN = 20;
   const F_MAX = 20000;
-  const DB_RANGE = 18;
   const PAD = { left: 30, right: 8, top: 8, bottom: 18 };
   const Q_MIN = 0.1;
   const Q_MAX = 25.5;
   const WHEEL_Q_FACTOR = 1.08;
   const GRID_FREQS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
   const LABEL_FREQS = new Set([20, 100, 1000, 10000, 20000, 50, 200, 500, 2000, 5000]);
-  const GRID_DB = [-12, -6, 0, 6, 12];
+  /** Grid lines per graph range (Settings). */
+  const GRID_DB: Readonly<Record<number, number[]>> = {
+    12: [-12, -6, 0, 6, 12],
+    18: [-12, -6, 0, 6, 12],
+    24: [-24, -12, 0, 12, 24],
+  };
+
+  const dbRange = $derived(settings.value.eqRangeDb);
+  const gridDb = $derived(GRID_DB[dbRange] ?? GRID_DB[18]!);
 
   let width = $state(800);
   let height = $state(260);
@@ -40,10 +48,10 @@
 
   const plotW = $derived(Math.max(100, width - PAD.left - PAD.right));
   const plotH = $derived(Math.max(60, height - PAD.top - PAD.bottom));
-  const scales = $derived(makeScales(plotW, plotH, F_MIN, F_MAX, DB_RANGE));
+  const scales = $derived(makeScales(plotW, plotH, F_MIN, F_MAX, dbRange));
   const freqs = $derived(logFreqAxis(Math.min(400, Math.round(plotW / 2)), F_MIN, F_MAX));
 
-  const clampDb = (db: number) => Math.max(-DB_RANGE, Math.min(DB_RANGE, db));
+  const clampDb = (db: number) => Math.max(-dbRange, Math.min(dbRange, db));
   const x = (hz: number) => PAD.left + scales.freqToX(hz);
   const y = (db: number) => PAD.top + scales.dbToY(clampDb(db));
 
@@ -142,7 +150,7 @@
         <line x1={x(hz)} x2={x(hz)} y1={PAD.top} y2={PAD.top + plotH} />
         {#if LABEL_FREQS.has(hz)}<text class="xlabel" x={x(hz)} y={height - 5}>{freqLabel(hz)}</text>{/if}
       {/each}
-      {#each GRID_DB as db (db)}
+      {#each gridDb as db (db)}
         <line class:zero={db === 0} x1={PAD.left} x2={PAD.left + plotW} y1={y(db)} y2={y(db)} />
         <text class="ylabel" x={PAD.left - 4} y={y(db) + 3}>{db > 0 ? `+${db}` : db}</text>
       {/each}

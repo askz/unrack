@@ -1,9 +1,11 @@
 <script lang="ts">
   // All filters of one output as an editable table: high-pass, 7 PEQ bands, low-pass.
-  // Q is shown (the device stores Q in 0.1 steps); the model keeps bandwidth in octaves.
+  // The width is shown as Q or as bandwidth (Settings); the device stores Q in 0.1 steps
+  // and the model keeps bandwidth in octaves.
   import { device } from "../state/device.svelte.ts";
+  import { settings } from "../state/settings.svelte.ts";
   import { ui } from "../state/ui.svelte.ts";
-  import { FREQ_RANGE, PEQ_GAIN_RANGE } from "../state/params.ts";
+  import { BANDWIDTH_RANGE, FREQ_RANGE, PEQ_GAIN_RANGE } from "../state/params.ts";
   import { bwOctToQ, qToBwOct } from "../eq/biquad.ts";
   import type { Crossover, PeqBand } from "../eq/types.ts";
   import NumberField from "../ui/NumberField.svelte";
@@ -13,8 +15,10 @@
 
   let { ch }: { ch: number } = $props();
 
-  const FREQ_STEP = Math.pow(2, 1 / 30); // one device frequency step (1/30 octave)
   const Q_RANGE = { min: 0.1, max: 25.5, step: 0.1 };
+  const BANDWIDTH_FIELD_STEP = 0.1;
+  const freqStep = $derived(Math.pow(2, 1 / settings.value.freqStepDivisions));
+  const showQ = $derived(settings.value.eqWidth === "q");
   const eq = $derived(device.ch(ch).eq!);
   const selected = $derived(ui.bandOf(ch));
   const seal = () => device.seal();
@@ -29,6 +33,15 @@
     else device.setLpf(ch, next);
   }
   const qOf = (band: PeqBand) => bwOctToQ(band.bwOct, band.freqHz);
+
+  /** Bandwidth steps move one device Q step each (wider = lower Q), so stepping never stalls on wide bands. */
+  function bandwidthStepper(band: PeqBand): (fromOct: number, delta: number) => number {
+    return (fromOct, delta) => {
+      const steps = delta / BANDWIDTH_FIELD_STEP;
+      const q = Math.round((bwOctToQ(fromOct, band.freqHz) - steps * Q_RANGE.step) * 10) / 10;
+      return qToBwOct(Math.min(Q_RANGE.max, Math.max(Q_RANGE.min, q)), band.freqHz);
+    };
+  }
 </script>
 
 <div class="scroll">
@@ -40,7 +53,7 @@
         <th class="c-type">Type</th>
         <th>Freq</th>
         <th>Gain</th>
-        <th>Q</th>
+        <th>{showQ ? "Q" : "Bandwidth"}</th>
         <th class="c-act"></th>
       </tr>
     </thead>
@@ -61,7 +74,7 @@
             </select>
           </td>
           <td>
-            <NumberField value={band.freqHz} min={FREQ_RANGE.min} max={FREQ_RANGE.max} step={FREQ_STEP} log
+            <NumberField value={band.freqHz} min={FREQ_RANGE.min} max={FREQ_RANGE.max} step={freqStep} log
                          format={formatHz} unit="Hz" {status} onend={seal} ariaLabel="Band {index + 1} frequency"
                          onchange={(freqHz) => setBand(index, { freqHz, bwOct: qToBwOct(qOf(band), freqHz) })} />
           </td>
@@ -72,9 +85,16 @@
                          onchange={(gainDb) => setBand(index, { gainDb })} />
           </td>
           <td>
-            <NumberField value={qOf(band)} min={Q_RANGE.min} max={Q_RANGE.max} step={Q_RANGE.step}
-                         format={(v) => v.toFixed(1)} {status} onend={seal} width="64px" ariaLabel="Band {index + 1} Q"
-                         onchange={(q) => setBand(index, { bwOct: qToBwOct(q, band.freqHz) })} />
+            {#if showQ}
+              <NumberField value={qOf(band)} min={Q_RANGE.min} max={Q_RANGE.max} step={Q_RANGE.step}
+                           format={(v) => v.toFixed(1)} {status} onend={seal} width="64px" ariaLabel="Band {index + 1} Q"
+                           onchange={(q) => setBand(index, { bwOct: qToBwOct(q, band.freqHz) })} />
+            {:else}
+              <NumberField value={band.bwOct} min={BANDWIDTH_RANGE.min} max={BANDWIDTH_RANGE.max} step={BANDWIDTH_FIELD_STEP}
+                           stepper={bandwidthStepper(band)} format={(v) => v.toFixed(2)} unit="oct" {status} onend={seal}
+                           width="88px" ariaLabel="Band {index + 1} bandwidth"
+                           onchange={(bwOct) => setBand(index, { bwOct })} />
+            {/if}
           </td>
           <td class="c-act">
             <button class="ghost" title="Reset band {index + 1}" aria-label="Reset band {index + 1}"
@@ -100,7 +120,7 @@
       </select>
     </td>
     <td>
-      <NumberField value={xo.freqHz} min={FREQ_RANGE.min} max={FREQ_RANGE.max} step={FREQ_STEP} log
+      <NumberField value={xo.freqHz} min={FREQ_RANGE.min} max={FREQ_RANGE.max} step={freqStep} log
                    format={formatHz} unit="Hz" {status} onend={seal} ariaLabel="{name} frequency"
                    onchange={(freqHz) => setCrossover(kind, { freqHz })} />
     </td>

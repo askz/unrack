@@ -1,6 +1,7 @@
 <script lang="ts">
-  // All eight channels as mixer strips (fader + meter, gain, mute, polarity, solo on
-  // outputs), a master trim for the outputs, and the routing matrix.
+  // The channels as mixer strips (fader + meter, gain, mute, polarity, solo on outputs),
+  // a master trim for the outputs, and the routing matrix. Channels hidden in Settings
+  // are left out (the matrix keeps every input column so no active route disappears).
   import { device } from "../state/device.svelte.ts";
   import { settings } from "../state/settings.svelte.ts";
   import { ui } from "../state/ui.svelte.ts";
@@ -16,8 +17,11 @@
   import { formatDb } from "../ui/format.ts";
   import { INPUT_LETTERS } from "../ui/labels.ts";
 
-  const channels = Array.from({ length: CHANNEL_COUNT }, (_, i) => i);
-  const outputs = Array.from({ length: OUTPUT_COUNT }, (_, i) => OUT_BASE + i);
+  const allChannels = Array.from({ length: CHANNEL_COUNT }, (_, i) => i);
+  const allOutputs = Array.from({ length: OUTPUT_COUNT }, (_, i) => OUT_BASE + i);
+  const channels = $derived(allChannels.filter((ch) => !settings.value.hidden.includes(ch)));
+  const outputs = $derived(allOutputs.filter((ch) => !settings.value.hidden.includes(ch)));
+  const firstOutput = $derived(outputs[0]);
   const gainStep = $derived(settings.value.gainStepDb);
 
   function summary(ch: number): string {
@@ -31,13 +35,13 @@
 
 <div class="view">
   <Section title="Channels">
-    <div class="strips">
+    <div class="strips" style:--strip-count={channels.length + 1}>
       {#each channels as ch (ch)}
         {@const channel = device.ch(ch)}
         {@const name = device.displayName(ch)}
         {@const gainStatus = device.syncOf({ kind: "gain", ch })}
         {@const warn = device.aboveCeiling(ch)}
-        <div class="strip" class:output-start={ch === OUT_BASE} style="--marker: var(--ch-{ch})">
+        <div class="strip" class:output-start={ch === firstOutput && channels[0] !== ch} style="--marker: var(--ch-{ch})">
           <button class="name ghost" title="Open {name}" onclick={() => ui.open(ch)}>{name}</button>
           <div class="mix">
             <Fader value={channel.gainDb} orientation="vertical" ticks step={gainStep} label="{name} gain"
@@ -95,7 +99,7 @@
 
 <style>
   .view { display: grid; gap: var(--gap); align-content: start; max-width: 1100px; }
-  .strips { display: grid; grid-template-columns: repeat(9, minmax(84px, 1fr)); gap: 6px; }
+  .strips { display: grid; grid-template-columns: repeat(var(--strip-count), minmax(84px, 1fr)); gap: 6px; }
   .strip {
     display: grid; grid-template-rows: auto 220px auto auto auto; gap: 6px; padding: 6px;
     background: var(--surface-2); border: 1px solid var(--line); border-top: 3px solid var(--marker); border-radius: var(--radius);
