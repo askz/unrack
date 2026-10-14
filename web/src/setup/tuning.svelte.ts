@@ -1,124 +1,76 @@
-// A by-ear fine-tuning session on the device. Start mutes all but the pair, flips the
-// lower output's polarity and plays the sine; each offset change re-sends the delays;
-// Done keeps the delays and stores the offset in the setup, Cancel puts everything back.
-// A session is one undo step. What it changed stays in localStorage until it ends, so
-// it can be put back after a reload or a lost connection.
+// The app's by-ear fine-tuning session: reactive state for the UI around the
+// TuningRunner (tuningRunner.ts), which does the sequencing against the device. A lost
+// link ends a running session as interrupted.
 import { untrack } from "svelte";
-import { TONE_FREQS, ToneSource } from "../protocol/commands.ts";
 import { device } from "../state/device.svelte.ts";
 import { browserStorage } from "../state/storage.ts";
-import type { Rig } from "./alignment.ts";
 import { setupDraft } from "./draft.svelte.ts";
-import { rigOf, type Recipe } from "./recipe.ts";
-import {
-  clearTuningSnapshot, loadTuningSnapshot, nearestToneIndex, offsetAssignments, offsetLimits, restoreAfterTuning,
-  saveTuningSnapshot, snapshotOf, startAssignments, type TuningSnapshot, type TuningStep,
-} from "./tuning.ts";
-
-/** The session in progress: the pair, the tone, the offset range and what to put back. */
-export interface RunningTuning {
-  /** "Sub ↔ Top L" */
-  pairName: string;
-  step: TuningStep;
-  upper: number;
-  toneHz: number;
-  limits: { min: number; max: number };
-  rig: Rig;
-  snapshot: TuningSnapshot;
-}
+import type { Recipe } from "./recipe.ts";
+import type { TuningSnapshot, TuningStep } from "./tuning.ts";
+import { TuningRunner, type RunningTuning, type TuningDevice, type TuningState } from "./tuningRunner.ts";
 
 /** Title of the controls that reload or replace the live state, disabled while a session runs. */
 export const TUNING_LOCKED = "Finish or cancel the fine-tuning first";
+/** Title of the controls that replace the live state while an interrupted session waits for Restore or Dismiss. */
+export const TUNING_INTERRUPTED = "Restore or dismiss the interrupted fine-tuning first";
 
-const OFFSET_DECIMALS = 2;
+class SessionState implements TuningState {
+  running = $state.raw<RunningTuning | null>(null);
+  starting = $state(false);
+  offsetMs = $state(0);
+  interrupted = $state.raw<TuningSnapshot | null>(null);
+}
+
+const deviceFacade: TuningDevice = {
+  get connected() { return device.connected; },
+  get model() { return device.edit.model; },
+  beginGroup: (label) => device.beginGroup(label),
+  endGroup: () => device.endGroup(),
+  applyGroup: (label, assignments) => device.applyGroup(label, assignments),
+  testTone: (source, freqIndex) => device.testTone(source, freqIndex),
+  resetOutputSnapshots: () => device.resetOutputSnapshots(),
+  report: (label, message) => device.reportIssue(label, message),
+};
 
 class TuningSession {
-  private readonly storage = browserStorage();
-  running = $state.raw<RunningTuning | null>(null);
-  offsetMs = $state(0);
-  /** What a session that did not end (reload, lost connection) had changed. */
-  interrupted = $state.raw<TuningSnapshot | null>(null);
+  private readonly state = new SessionState();
+  private readonly runner = new TuningRunner({
+    device: deviceFacade,
+    storage: browserStorage(),
+    state: this.state,
+    storeOffset: (output, offsetMs) => setupDraft.edit((recipe) => { recipe.alignment.offsetsMs[output] = offsetMs; }),
+  });
 
   constructor() {
-    this.interrupted = loadTuningSnapshot(this.storage);
     $effect.root(() => {
       $effect(() => {
         const linked = device.phase === "ready" || device.phase === "syncing";
-        if (!linked) untrack(() => this.interrupt());
+        if (!linked) untrack(() => this.runner.interrupt());
       });
     });
   }
 
+  get running(): RunningTuning | null { return this.state.running; }
+  /** The device has not confirmed the mutes and polarity yet: the tone is not playing. */
+  get starting(): boolean { return this.state.starting; }
+  get offsetMs(): number { return this.state.offsetMs; }
+  /** What a session that did not end (reload, lost connection, unconfirmed restore) had changed. */
+  get interrupted(): TuningSnapshot | null { return this.state.interrupted; }
+  /** Why controls that replace the live state are locked now, or null (offline edits are replaced by the readback anyway). */
+  get lock(): string | null {
+    if (this.state.running) return TUNING_LOCKED;
+    return this.state.interrupted && device.connected ? TUNING_INTERRUPTED : null;
+  }
+
   start(recipe: Recipe, step: TuningStep, upper: number, pairName: string): void {
-    if (this.running || this.interrupted || !device.connected) return;
-    const rig = rigOf(recipe);
-    const snapshot = snapshotOf(device.edit.model);
-    saveTuningSnapshot(this.storage, snapshot);
-    const toneIndex = nearestToneIndex(step.crossoverHz);
-    const toneHz = TONE_FREQS[toneIndex]!;
-    const startMs = rig.alignment.offsetsMs[step.lower] ?? 0;
-    const label = `Fine-tune ${pairName}`;
-    device.beginGroup(label);
-    device.applyGroup(label, startAssignments(snapshot, step.lower, upper));
-    device.testTone(ToneSource.SINE, toneIndex);
-    this.offsetMs = startMs;
-    this.running = { pairName, step, upper, toneHz, limits: offsetLimits(startMs, toneHz), rig, snapshot };
+    void this.runner.start(recipe, step, upper, pairName);
   }
-
-  setOffset(ms: number): void {
-    const run = this.running;
-    if (!run) return;
-    const next = Number(Math.min(run.limits.max, Math.max(run.limits.min, ms)).toFixed(OFFSET_DECIMALS));
-    if (next === this.offsetMs) return;
-    this.offsetMs = next;
-    device.applyGroup(`Fine-tune ${run.pairName}`, offsetAssignments(run.rig, run.step.lower, next));
-  }
-
+  setOffset(ms: number): void { this.runner.setOffset(ms); }
   /** Keep the delays and store the offset in the setup. */
-  done(): void {
-    const run = this.running;
-    if (!run) return;
-    const offset = this.offsetMs;
-    this.finish(run, true);
-    setupDraft.edit((recipe) => { recipe.alignment.offsetsMs[run.step.lower] = offset; });
-  }
-
-  cancel(): void {
-    const run = this.running;
-    if (run) this.finish(run, false);
-  }
-
-  restoreInterrupted(): void {
-    const snapshot = this.interrupted;
-    if (!snapshot || !device.connected) return;
-    device.testTone(ToneSource.OFF);
-    device.applyGroup("Restore after fine-tuning", restoreAfterTuning(snapshot, false));
-    this.dismissInterrupted();
-  }
-
-  dismissInterrupted(): void {
-    this.interrupted = null;
-    clearTuningSnapshot(this.storage);
-  }
-
-  /** The link went away: nothing can be sent, and the readback on reconnect clears the undo group. */
-  private interrupt(): void {
-    const run = this.running;
-    if (!run) return;
-    device.endGroup();
-    this.running = null;
-    this.interrupted = run.snapshot;
-  }
-
-  private finish(run: RunningTuning, keepDelays: boolean): void {
-    const reached = device.connected;
-    device.testTone(ToneSource.OFF);
-    device.applyGroup(`Fine-tune ${run.pairName}`, restoreAfterTuning(run.snapshot, keepDelays));
-    device.endGroup();
-    this.running = null;
-    if (reached) clearTuningSnapshot(this.storage);
-    else this.interrupted = run.snapshot;
-  }
+  done(): void { void this.runner.done(); }
+  cancel(): void { void this.runner.cancel(); }
+  restoreInterrupted(): void { void this.runner.restoreInterrupted(); }
+  dismissInterrupted(): void { this.runner.dismissInterrupted(); }
 }
 
 /** The app's one fine-tuning session, ended as interrupted when the device link goes away. */

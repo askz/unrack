@@ -1,7 +1,7 @@
 // By-ear fine tuning of the time alignment (polarity-null method): with one band
 // inverted, a sine at the crossover is quietest when the two bands arrive together.
 // Planning only: which pairs to tune, the tone, and the parameter changes that start,
-// adjust and end a session. tuning.svelte.ts runs it against the device.
+// adjust and end a session. tuningRunner.ts runs it against the device.
 import { TONE_FREQS } from "../protocol/commands.ts";
 import { OUT_BASE, OUTPUT_COUNT, type DeviceModel } from "../state/model.ts";
 import type { ParamAssignment } from "../state/params.ts";
@@ -36,6 +36,8 @@ export interface TuningSnapshot {
 /** What decides whether a session can start. */
 export interface TuningContext {
   connected: boolean;
+  /** A recall, store or import is in progress (its readback would end the session's undo group). */
+  busy: boolean;
   /** The setup form has no problems. */
   valid: boolean;
   rig: Rig;
@@ -112,6 +114,7 @@ export function restoreAfterTuning(snapshot: TuningSnapshot, keepDelays: boolean
 export function tuningBlocker(context: TuningContext): string | null {
   const { rig, model } = context;
   if (!context.connected) return "Connect the device first";
+  if (context.busy) return "Wait for the device to finish";
   if (!rig.alignment.enabled) return "Switch time alignment on first";
   if (tuningSteps(rig.outputs, rig.crossoversHz).length === 0) return "This layout has no crossover to tune";
   if (!context.valid) return "Fix the problems in the setup first";

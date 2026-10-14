@@ -175,11 +175,12 @@ export class DeviceStore {
     this.guard(describeParam(ref, this.editor.nameOf), () => this.editor.set(ref, value, { merge }));
   }
 
-  private guard(label: string, op: () => Promise<boolean>): void {
+  private guard(label: string, op: () => Promise<boolean>): Promise<boolean> {
     try {
-      void op();
+      return op();
     } catch (error) {
       this.report(label, error);
+      return Promise.resolve(false);
     }
   }
 
@@ -236,15 +237,22 @@ export class DeviceStore {
     return result;
   }
 
+  /** Forget the solo and the mute states saved by Solo and Mute all, so they cannot re-mute outputs later. */
+  resetOutputSnapshots(): void {
+    this.clearSolo();
+    this.muteAllSnapshot = null;
+  }
+
   private clearSolo(): void {
     this.soloed = [];
     this.soloSnapshot = null;
   }
 
-  /** Several edits as one undo step (inside a group, part of the group's step). */
-  applyGroup(label: string, assignments: ParamAssignment[]): void {
-    this.guard(label, () => this.editor.setMany(label, assignments));
+  /** Several edits as one undo step (inside a group, part of the group's step); true once the device confirmed them all. */
+  applyGroup(label: string, assignments: ParamAssignment[]): Promise<boolean> {
+    const delivered = this.guard(label, () => this.editor.setMany(label, assignments));
     this.editor.seal();
+    return delivered;
   }
 
   // --- presets ---
@@ -260,6 +268,7 @@ export class DeviceStore {
 
   /** Store the live state into a preset slot, then refresh that slot's name and the active slot. */
   storePreset(slot: number): Promise<void> {
+    if (this.editor.grouping) return Promise.resolve(); // the slot would get the session's mutes and inverted polarity
     return this.runBusy(`Store preset ${slot + 1}`, async (dsp) => {
       await dsp.storePreset(slot);
       const name = await dsp.presetName(slot);
@@ -292,8 +301,9 @@ export class DeviceStore {
     }
   }
 
-  testTone(source: number, freqIndex = 0): void { this.send("Test tone", (d) => d.testTone(source, freqIndex)); }
-  setPassword(pw: string): void { this.send("Lock password", (d) => d.setPassword(pw)); }
+  /** True once the device confirmed it; false offline or on an error (logged). */
+  testTone(source: number, freqIndex = 0): Promise<boolean> { return this.send("Test tone", (d) => d.testTone(source, freqIndex)); }
+  setPassword(pw: string): void { void this.send("Lock password", (d) => d.setPassword(pw)); }
 
   // --- readback ---
 
@@ -336,17 +346,33 @@ export class DeviceStore {
 
   // --- issue log / helpers ---
 
+  /** Add a problem found outside the device store (e.g. a guided session that had to stop) to the issue log. */
+  reportIssue(label: string, message: string): void {
+    this.report(label, new Error(message));
+  }
+
   private report(label: string, error: unknown): void {
     if (error instanceof ProtocolError && error.kind === "closed") return; // the Connection reports the loss
     const issue = { at: Date.now(), message: `${label}: ${messageOf(error)}` };
     this.issues = [...this.issues.slice(-(MAX_ISSUES - 1)), issue];
   }
 
-  /** Fire-and-forget a non-parameter command; failures land in the issue log. */
-  private send(label: string, op: (dsp: Dsp) => Promise<unknown>): void {
+  /** A non-parameter command, sent at once (in order with what is already queued); failures land in the issue log. */
+  private send(label: string, op: (dsp: Dsp) => Promise<unknown>): Promise<boolean> {
     const dsp = this.connection.dsp;
-    if (!dsp) return;
-    op(dsp).catch((error: unknown) => this.report(label, error));
+    if (!dsp) return Promise.resolve(false);
+    try {
+      return op(dsp).then(
+        () => true,
+        (error: unknown) => {
+          this.report(label, error);
+          return false;
+        },
+      );
+    } catch (error) {
+      this.report(label, error);
+      return Promise.resolve(false);
+    }
   }
 
   private async runBusy(label: string, op: (dsp: Dsp) => Promise<void>): Promise<void> {

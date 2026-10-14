@@ -84,9 +84,11 @@ test("ending restores mutes (unknown ones unmuted) and polarity, and the delays 
 test("fine tuning needs a connected device with the setup applied", () => {
   const model = defaultModel();
   const recipe = directRecipe();
-  const blocker = (patch: Partial<TuningContext> = {}) => tuningBlocker({ connected: true, valid: true, rig: rigOf(recipe), model, ...patch });
+  const blocker = (patch: Partial<TuningContext> = {}) =>
+    tuningBlocker({ connected: true, busy: false, valid: true, rig: rigOf(recipe), model, ...patch });
   assert.equal(blocker(), null, "all distances 0: every delay is 0, as on the device");
   assert.equal(blocker({ connected: false }), "Connect the device first");
+  assert.equal(blocker({ busy: true }), "Wait for the device to finish");
   assert.equal(blocker({ rig: rigOf({ ...recipe, alignment: { ...recipe.alignment, enabled: false } }) }), "Switch time alignment on first");
   assert.equal(blocker({ rig: rigOf({ ...defaultRecipe("2.0"), alignment: recipe.alignment }) }), "This layout has no crossover to tune");
   assert.equal(blocker({ valid: false }), "Fix the problems in the setup first");
