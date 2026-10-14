@@ -4,7 +4,9 @@
 // and alignment), shared by recipe.ts, the tuning and the Setup view.
 import type { OutputSlot } from "./recipe.ts";
 
+/** "positions": delays from speaker heights and the crowd; "direct": from measured distances. */
 export type AlignmentMode = "positions" | "direct";
+/** One value per output, Out 1 to Out 4. */
 export type PerOutput<T> = [T, T, T, T];
 
 export interface SpeakerPosition {
@@ -44,14 +46,17 @@ export interface Rig {
   alignment: Alignment;
 }
 
+/** How two neighbouring bands sum at their crossover at one crowd position. */
 export type CouplingState = "adds" | "weak" | "cancels";
 
+/** One crowd position and the worst crossover phase there. */
 export interface CoverageSample {
   xM: number;
   worstPhaseDeg: number;
   state: CouplingState;
 }
 
+/** Coupling across the whole crowd. */
 export interface Coverage {
   samples: CoverageSample[];
   /** Length of crowd at "adds" or "weak". */
@@ -70,6 +75,7 @@ export interface BandPair {
 export const ADDS_MAX_DEG = 90;
 /** Beyond this the two bands no longer reinforce each other. */
 export const COUPLED_MAX_DEG = 120;
+/** Spacing of the crowd positions evaluated (m). */
 export const SAMPLE_STEP_M = 0.1;
 /** Keeps a very deep crowd fast to evaluate (the suggestion is quadratic in samples). */
 const MAX_SAMPLES = 501;
@@ -79,6 +85,7 @@ export function speedOfSound(tempC: number): number {
   return 331.3 + 0.606 * tempC;
 }
 
+/** Straight path (m) from a speaker to ears at earHeightM, pointM from the stage edge. */
 export function pathLengthM(speaker: SpeakerPosition, pointM: number, earHeightM: number): number {
   return Math.hypot(pointM - speaker.xM, speaker.heightM - earHeightM);
 }
@@ -118,6 +125,7 @@ export function bandPairs(rig: Rig): BandPair[] {
   });
 }
 
+/** Classifies a crossover phase difference (degrees, either sign). */
 export function couplingState(phaseDeg: number): CouplingState {
   const size = Math.abs(phaseDeg);
   if (size <= ADDS_MAX_DEG) return "adds";
