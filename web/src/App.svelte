@@ -8,15 +8,17 @@
   import InputView from "./views/InputView.svelte";
   import OutputView from "./views/OutputView.svelte";
   import SystemView from "./views/SystemView.svelte";
+  import SetupView from "./setup/SetupView.svelte";
   import { OUT_BASE } from "./state/model.ts";
 
   const SYSTEM_KEY = "9";
+  const SETUP_KEY = "s";
 
   function isEditable(target: EventTarget | null): boolean {
     return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName));
   }
 
-  /** Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl+Y redo, 0 overview, 1–8 channels, 9 system. */
+  /** Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl+Y redo, 0 overview, 1–8 channels, 9 system, S setup. */
   function onKeydown(event: KeyboardEvent): void {
     const mod = event.ctrlKey || event.metaKey;
     if (mod && !event.altKey && event.key.toLowerCase() === "z") {
@@ -34,6 +36,7 @@
     if (mod || event.altKey || isEditable(event.target) || document.querySelector("dialog[open]")) return;
     if (event.key === "0") ui.open("overview");
     else if (event.key === SYSTEM_KEY) ui.open("system");
+    else if (event.key.toLowerCase() === SETUP_KEY) ui.open("setup");
     else if (/^[1-8]$/.test(event.key)) ui.open(Number(event.key) - 1);
   }
 </script>
@@ -52,14 +55,18 @@
     <div class="notice">Offline: edits change this screen only. Connecting loads the device's current settings.</div>
   {/if}
 
-  {#if ui.view === "overview"}
-    <Overview />
+  {#if ui.view === "setup"}
+    <SetupView />
   {:else if ui.view === "system"}
     <SystemView />
-  {:else if ui.view < OUT_BASE}
-    {#key ui.view}<InputView ch={ui.view} />{/key}
+  {:else if typeof ui.view === "number"}
+    {#if ui.view < OUT_BASE}
+      {#key ui.view}<InputView ch={ui.view} />{/key}
+    {:else}
+      {#key ui.view}<OutputView ch={ui.view} />{/key}
+    {/if}
   {:else}
-    {#key ui.view}<OutputView ch={ui.view} />{/key}
+    <Overview />
   {/if}
 </main>
 

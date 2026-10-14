@@ -1,14 +1,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatDb, formatHz, parseNumber } from "../src/ui/format.ts";
-import { hashToView, viewToHash } from "../src/state/viewHash.ts";
+import { hashToView, initialView, viewToHash } from "../src/state/viewHash.ts";
 
 test("views round-trip through the URL hash", () => {
-  for (const view of ["overview", "system", 0, 3, 4, 7] as const) assert.equal(hashToView(`#${viewToHash(view)}`), view);
+  for (const view of ["overview", "setup", "system", "settings", 0, 3, 4, 7] as const) assert.equal(hashToView(`#${viewToHash(view)}`), view);
   assert.equal(viewToHash(4), "out-1");
   assert.equal(viewToHash(1), "in-b");
   assert.equal(hashToView("#nonsense"), "overview");
   assert.equal(hashToView(""), "overview");
+});
+
+test("the first view: the URL hash, else the last view if the setting asks for it", () => {
+  assert.equal(initialView("#out-2", "overview", "setup"), 5, "a hash always wins");
+  assert.equal(initialView("", "last", "setup"), "setup");
+  assert.equal(initialView("", "overview", "setup"), "overview");
+  assert.equal(initialView("#", "last", "in-c"), 2);
+  assert.equal(initialView("", "last", null), "overview");
+  assert.equal(initialView("", "last", "bogus"), "overview");
+  assert.equal(initialView("#bogus", "last", "system"), "system", "an unknown hash counts as none");
 });
 
 test("formatHz picks a precision per decade", () => {

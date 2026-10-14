@@ -19,10 +19,16 @@
   --meter-lo: #3fae74;
   --meter-mid: #d6b13a;
   --meter-hi: #e5534b;
+  --graph-bg: #0e1013;
+  --graph-grid: #22262c;
+  --graph-zero: #3a4048;
 
   /* channel identity markers (tabs, strips): muted, never used as fills */
   --ch-0: #d97aa6; --ch-1: #d9925a; --ch-2: #cfc05a; --ch-3: #8fc25a;
   --ch-4: #5aa7d9; --ch-5: #7f8ad9; --ch-6: #a97fd9; --ch-7: #5ac2b4;
+
+  /* frequency bands in the Setup diagrams, lowest to highest */
+  --band-0: #d9925a; --band-1: #cfc05a; --band-2: #5ac2b4; --band-3: #7f8ad9;
 
   --radius: 3px;
   --gap: 8px;

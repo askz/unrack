@@ -28,7 +28,7 @@ function routingText(mask: number): string {
 
 function bandText(band: PeqBand): string {
   const gain = GAINLESS_PEQ_TYPES.has(band.type) ? "" : ` ${formatDb(band.gainDb)} dB`;
-  const off = band.bypass === true ? " (off)" : "";
+  const off = band.bypass === true ? " (off)" : band.bypass === null ? " (on/off unknown)" : "";
   return `${PEQ_TYPE_LABELS[band.type] ?? "?"} ${formatHz(band.freqHz)} Hz${gain} Q ${bwOctToQ(band.bwOct, band.freqHz).toFixed(1)}${off}`;
 }
 

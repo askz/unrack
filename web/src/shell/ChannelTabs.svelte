@@ -1,16 +1,15 @@
 <script lang="ts">
-  // Tab strip: Overview, the 8 channels (with live level and state badges), System.
+  // Tab strip: Overview, Setup, the 8 channels (with live level and state badges), System.
   import { device } from "../state/device.svelte.ts";
   import { ui, type View } from "../state/ui.svelte.ts";
   import { CHANNEL_COUNT } from "../state/model.ts";
   import Meter from "../ui/Meter.svelte";
 
-  const views: View[] = ["overview", ...Array.from({ length: CHANNEL_COUNT }, (_, i) => i), "system"];
+  const views: View[] = ["overview", "setup", ...Array.from({ length: CHANNEL_COUNT }, (_, i) => i), "system"];
+  const NAMED_TITLES: Record<Exclude<View, number>, string> = { overview: "Overview", setup: "Setup", system: "System", settings: "Settings" };
 
   function title(view: View): string {
-    if (view === "overview") return "Overview";
-    if (view === "system") return "System";
-    return device.displayName(view);
+    return typeof view === "number" ? device.displayName(view) : NAMED_TITLES[view];
   }
 
   /** Channels with parameters the device did not accept (failed) or never received (offline). */

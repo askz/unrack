@@ -41,6 +41,15 @@ test("PEQ bands show type, frequency, gain and Q", () => {
   assert.equal(line, `Out 1 PEQ band 1: Peak ${before.freqHz.toFixed(1)} Hz 0.0 dB Q ${q(before)} → Low shelf ${after.freqHz.toFixed(1)} Hz +3.0 dB Q ${q(after)}`);
 });
 
+test("a band whose on/off state the device could not report says so", () => {
+  const model = defaultModel();
+  const band = model.channels[4]!.eq!.bands[0]!;
+  model.channels[4]!.eq!.bands[0] = { ...band, bypass: null };
+  const [line] = describeChanges(model, [{ ref: { kind: "peq", ch: 4, band: 0 }, value: { ...band, bypass: false } }], cal);
+  const text = `Peak ${band.freqHz.toFixed(1)} Hz 0.0 dB Q ${bwOctToQ(band.bwOct, band.freqHz).toFixed(1)}`;
+  assert.equal(line, `Out 1 PEQ band 1: ${text} (on/off unknown) → ${text}`);
+});
+
 test("values equal to the model after device quantization are not changes", () => {
   const model = defaultModel();
   const sameAfterRounding: ParamAssignment[] = [
