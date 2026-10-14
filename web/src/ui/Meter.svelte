@@ -1,7 +1,8 @@
 <script lang="ts">
   // Level meter for a 0..1 reading (linear in dB between the device's floor and full
-  // scale), with a short peak hold.
+  // scale), with a peak hold whose duration comes from the settings (0 = no peak).
   import { untrack } from "svelte";
+  import { settings } from "../state/settings.svelte.ts";
 
   interface Props {
     level: number;
@@ -11,12 +12,12 @@
 
   let { level, orientation = "vertical", title }: Props = $props();
 
-  const PEAK_HOLD_MS = 1200;
   const PEAK_FALL_PER_UPDATE = 0.04;
 
   let peak = $state(0);
   let peakAt = 0;
 
+  const holdMs = $derived(settings.value.peakHoldMs);
   const clamped = $derived(Math.max(0, Math.min(1, level)));
   const percent = $derived(clamped * 100);
   const zone = $derived(clamped > 0.9 ? "hi" : clamped > 0.7 ? "mid" : "lo");
@@ -28,7 +29,7 @@
     if (current >= held) {
       peak = current;
       peakAt = now;
-    } else if (now - peakAt > PEAK_HOLD_MS) {
+    } else if (now - peakAt > untrack(() => holdMs)) {
       peak = Math.max(current, held - PEAK_FALL_PER_UPDATE);
     }
   });
@@ -36,7 +37,7 @@
 
 <div class="meter {orientation}" role="meter" aria-valuemin={0} aria-valuemax={1} aria-valuenow={clamped} {title}>
   <div class="fill {zone}" style={orientation === "vertical" ? `height:${percent}%` : `width:${percent}%`}></div>
-  {#if peak > 0.02}
+  {#if holdMs > 0 && peak > 0.02}
     <div class="peak" style={orientation === "vertical" ? `bottom:${peak * 100}%` : `left:${peak * 100}%`}></div>
   {/if}
 </div>
