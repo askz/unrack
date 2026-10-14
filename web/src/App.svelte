@@ -10,6 +10,7 @@
   import SystemView from "./views/SystemView.svelte";
   import SetupView from "./views/SetupView.svelte";
   import SettingsView from "./views/SettingsView.svelte";
+  import { tuning } from "./setup/tuning.svelte.ts";
   import { OUT_BASE } from "./state/model.ts";
   import { settings } from "./state/settings.svelte.ts";
   import { appearanceVars } from "./ui/appearance.ts";
@@ -73,6 +74,13 @@
     <div class="notice bad">{device.connectionError}. Plug the DSP back in to reconnect automatically, or press Connect.</div>
   {:else if !device.connected && device.phase !== "syncing"}
     <div class="notice">Offline: edits change this screen only. Connecting loads the device's current settings.</div>
+  {/if}
+
+  {#if ui.view !== "setup" && (tuning.running || (tuning.interrupted && device.connected))}
+    <div class="notice">
+      {tuning.running ? "Fine-tuning is running. Finish or cancel it in Setup." : "A fine-tuning session was interrupted. Restore the outputs in Setup."}
+      <button class="ghost" onclick={() => ui.open("setup")}>Open Setup</button>
+    </div>
   {/if}
 
   {#if typeof ui.view === "number" && settings.value.hidden.includes(ui.view)}

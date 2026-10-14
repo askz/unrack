@@ -3,6 +3,7 @@
 // Done keeps the delays and stores the offset in the setup, Cancel puts everything back.
 // A session is one undo step. What it changed stays in localStorage until it ends, so
 // it can be put back after a reload or a lost connection.
+import { untrack } from "svelte";
 import { TONE_FREQS, ToneSource } from "../protocol/commands.ts";
 import { device } from "../state/device.svelte.ts";
 import { browserStorage } from "../state/storage.ts";
@@ -14,6 +15,7 @@ import {
   saveTuningSnapshot, snapshotOf, startAssignments, type TuningSnapshot, type TuningStep,
 } from "./tuning.ts";
 
+/** The session in progress: the pair, the tone, the offset range and what to put back. */
 export interface RunningTuning {
   /** "Sub ↔ Top L" */
   pairName: string;
@@ -24,6 +26,9 @@ export interface RunningTuning {
   rig: Rig;
   snapshot: TuningSnapshot;
 }
+
+/** Title of the controls that reload or replace the live state, disabled while a session runs. */
+export const TUNING_LOCKED = "Finish or cancel the fine-tuning first";
 
 const OFFSET_DECIMALS = 2;
 
@@ -36,6 +41,12 @@ class TuningSession {
 
   constructor() {
     this.interrupted = loadTuningSnapshot(this.storage);
+    $effect.root(() => {
+      $effect(() => {
+        const linked = device.phase === "ready" || device.phase === "syncing";
+        if (!linked) untrack(() => this.interrupt());
+      });
+    });
   }
 
   start(recipe: Recipe, step: TuningStep, upper: number, pairName: string): void {
@@ -90,6 +101,15 @@ class TuningSession {
     clearTuningSnapshot(this.storage);
   }
 
+  /** The link went away: nothing can be sent, and the readback on reconnect clears the undo group. */
+  private interrupt(): void {
+    const run = this.running;
+    if (!run) return;
+    device.endGroup();
+    this.running = null;
+    this.interrupted = run.snapshot;
+  }
+
   private finish(run: RunningTuning, keepDelays: boolean): void {
     const reached = device.connected;
     device.testTone(ToneSource.OFF);
@@ -101,4 +121,5 @@ class TuningSession {
   }
 }
 
+/** The app's one fine-tuning session, ended as interrupted when the device link goes away. */
 export const tuning = new TuningSession();

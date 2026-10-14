@@ -87,14 +87,15 @@
       <p class="warning">The device is not connected. Cancel now: the changes are offered for restoring when it is connected again.</p>
     {/if}
     <div class="row">
-      <button onclick={(event) => nudge(event, -1)} title="Less delay on {nameOf(run.step.lower)} (Shift: 1 ms)">Earlier</button>
+      <button disabled={!device.connected} onclick={(event) => nudge(event, -1)} title="Less delay on {nameOf(run.step.lower)} (Shift: 1 ms)">Earlier</button>
       <NumberField ariaLabel="Fine-tune offset of {nameOf(run.step.lower)}" value={tuning.offsetMs} min={run.limits.min} max={run.limits.max}
-                   step={NUDGE_MS} format={(v) => formatDb(v, 2)} unit="ms" width="110px" onchange={(value) => tuning.setOffset(value)} />
-      <button onclick={(event) => nudge(event, 1)} title="More delay on {nameOf(run.step.lower)} (Shift: 1 ms)">Later</button>
+                   step={NUDGE_MS} format={(v) => formatDb(v, 2)} unit="ms" width="110px" disabled={!device.connected}
+                   onchange={(value) => tuning.setOffset(value)} />
+      <button disabled={!device.connected} onclick={(event) => nudge(event, 1)} title="More delay on {nameOf(run.step.lower)} (Shift: 1 ms)">Later</button>
       <span class="faint">{formatDb(run.limits.min, 1)} to {formatDb(run.limits.max, 1)} ms</span>
     </div>
     <div class="row">
-      <button class="primary" onclick={done}>Done</button>
+      <button class="primary" disabled={!device.connected} onclick={done}>Done</button>
       <button onclick={() => tuning.cancel()}>Cancel</button>
     </div>
   </div>

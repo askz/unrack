@@ -251,6 +251,7 @@ export class DeviceStore {
 
   /** Recall a preset slot, then re-read the device so the UI shows what is actually loaded. */
   recallPreset(slot: number): Promise<void> {
+    if (this.editor.grouping) return Promise.resolve(); // the readback would drop the session's undo group
     return this.runBusy(`Recall preset ${slot + 1}`, async (dsp) => {
       await dsp.recallPreset(slot);
       await this.connection.resync();
@@ -275,7 +276,7 @@ export class DeviceStore {
 
   /** Validate a preset file and apply it as one undoable edit (only differing values are sent). */
   async importPresetFile(text: string): Promise<void> {
-    if (this.busy) return;
+    if (this.busy || this.editor.grouping) return;
     this.busy = "Import preset file";
     try {
       const parsed = parsePresetFile(text);

@@ -4,6 +4,7 @@
   import ConfirmDialog from "../ui/ConfirmDialog.svelte";
   import { exportPresetFile, importPresetFile } from "../ui/presetFiles.ts";
   import { PHASE_LABELS } from "./phase.ts";
+  import { tuning, TUNING_LOCKED } from "../setup/tuning.svelte.ts";
 
   const slots = Array.from({ length: PRESET_SLOT_COUNT }, (_, i) => i);
   let slot = $state(0);
@@ -27,8 +28,8 @@
     <select bind:value={slot} disabled={!device.connected} aria-label="Preset slot">
       {#each slots as index (index)}<option value={index}>{slotLabel(index)}</option>{/each}
     </select>
-    <button class="primary" disabled={!device.connected || busy} onclick={() => device.recallPreset(slot)}
-            title="Load slot {slot + 1} (replaces the live settings)">Recall</button>
+    <button class="primary" disabled={!device.connected || busy || tuning.running !== null} onclick={() => device.recallPreset(slot)}
+            title={tuning.running ? TUNING_LOCKED : `Load slot ${slot + 1} (replaces the live settings)`}>Recall</button>
     <button disabled={!device.connected || busy} onclick={() => (confirmStore = true)} title="Save the live settings into slot {slot + 1}">Store…</button>
     {#if device.modified}<span class="edited" title="The live settings differ from the last recalled or stored preset">edited</span>{/if}
   </div>
@@ -47,7 +48,8 @@
   </div>
 
   <div class="group">
-    <button disabled={busy} onclick={importPresetFile} title="Apply a preset file to the live settings">Import…</button>
+    <button disabled={busy || tuning.running !== null} onclick={importPresetFile}
+            title={tuning.running ? TUNING_LOCKED : "Apply a preset file to the live settings"}>Import…</button>
     <button onclick={exportPresetFile} title="Save the live settings to a file">Export…</button>
   </div>
 

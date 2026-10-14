@@ -18,6 +18,7 @@
   } from "./recipe.ts";
   import AlignmentDiagram from "./AlignmentDiagram.svelte";
   import TuningPanel from "./TuningPanel.svelte";
+  import { tuning, TUNING_LOCKED } from "./tuning.svelte.ts";
 
   interface Props {
     recipe: Recipe;
@@ -57,7 +58,7 @@
 
 <Section title="Time alignment">
   {#snippet actions()}
-    <Toggle pressed={recipe.alignment.enabled} title="Time alignment"
+    <Toggle pressed={recipe.alignment.enabled} title={tuning.running ? TUNING_LOCKED : "Time alignment"} disabled={tuning.running !== null}
             onchange={(on) => draft.edit((r) => { r.alignment.enabled = on; })}>{recipe.alignment.enabled ? "On" : "Off"}</Toggle>
   {/snippet}
   {#if recipe.alignment.enabled}
@@ -152,6 +153,7 @@
     </p>
   {:else}
     <p class="dim">Off: the output delays are left as they are.</p>
+    {#if tuning.interrupted}<TuningPanel {recipe} {valid} />{/if}
   {/if}
 </Section>
 

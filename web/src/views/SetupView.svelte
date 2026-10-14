@@ -25,6 +25,7 @@
   import LayoutCard from "../setup/LayoutCard.svelte";
   import CrossoverPreview from "../setup/CrossoverPreview.svelte";
   import AlignmentSection from "../setup/AlignmentSection.svelte";
+  import { tuning, TUNING_LOCKED } from "../setup/tuning.svelte.ts";
 
   const SOURCE_NAMES: Record<SourceId, string> = { stereo: "Stereo A / B", mono: "Mono A" };
   const SLOPE_NAMES: Record<SlopeId, string> = { LR24: "Linkwitz-Riley 24 dB/oct", LR12: "Linkwitz-Riley 12 dB/oct" };
@@ -87,7 +88,7 @@
   }
 
   function apply(): void {
-    if (!build) return;
+    if (!build || tuning.running) return;
     const result = device.applySetup($state.snapshot(recipe) as Recipe);
     applied = { key: recipeKey, spare: result.spare };
   }
@@ -325,7 +326,8 @@
         </details>
       {/if}
       <div class="row">
-        <button class="primary" disabled={!build || changes.length === 0} onclick={apply}>
+        <button class="primary" disabled={!build || changes.length === 0 || tuning.running !== null}
+                title={tuning.running ? TUNING_LOCKED : undefined} onclick={apply}>
           Apply{changes.length > 0 ? ` ${changes.length} change${changes.length === 1 ? "" : "s"}` : ""}
         </button>
         {#if !device.connected}<span class="faint">Offline: this changes the screen only.</span>{/if}

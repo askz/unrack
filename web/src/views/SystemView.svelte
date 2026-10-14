@@ -5,6 +5,7 @@
   import ConfirmDialog from "../ui/ConfirmDialog.svelte";
   import { TONE_SOURCE_LABELS } from "../ui/labels.ts";
   import { exportPresetFile, importPresetFile } from "../ui/presetFiles.ts";
+  import { tuning, TUNING_LOCKED } from "../setup/tuning.svelte.ts";
 
   const SINE = 3;
   const DEFAULT_TONE_FREQ_INDEX = 17; // 1 kHz
@@ -67,7 +68,8 @@
               <td class="num">{slotLabel(slot)}</td>
               <td>{device.presetNames[slot] ?? "—"}{#if device.activePreset === slot}<span class="tag">active{device.modified ? ", edited" : ""}</span>{/if}</td>
               <td class="buttons">
-                <button disabled={!device.connected || busy} onclick={() => device.recallPreset(slot)}>Recall</button>
+                <button disabled={!device.connected || busy || tuning.running !== null} title={tuning.running ? TUNING_LOCKED : undefined}
+                        onclick={() => device.recallPreset(slot)}>Recall</button>
                 <button disabled={!device.connected || busy} onclick={() => (storeSlot = slot)}>Store</button>
               </td>
             </tr>
@@ -81,7 +83,7 @@
     <p class="dim">A file holds every parameter of the live state. Importing applies it as one undoable change and sends only the values that differ.</p>
     <div class="row">
       <button onclick={exportPresetFile}>Export to file…</button>
-      <button disabled={busy} onclick={importPresetFile}>Import from file…</button>
+      <button disabled={busy || tuning.running !== null} title={tuning.running ? TUNING_LOCKED : undefined} onclick={importPresetFile}>Import from file…</button>
     </div>
   </Section>
 
