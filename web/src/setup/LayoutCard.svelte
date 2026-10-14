@@ -2,6 +2,7 @@
   // One speaker layout as a pickable card: which input feeds which output, the outputs
   // coloured by frequency band (warm = low, cool = high), spare outputs dashed.
   import { bandCount, type Layout, type Side, type SourceId } from "./recipe.ts";
+  import { bandColour } from "./bandColour.ts";
 
   interface Props {
     layout: Layout;
@@ -22,12 +23,6 @@
   const INPUT_Y: Record<"A" | "B", number> = { A: 20, B: 56 };
   const outY = (index: number) => 4 + index * 22;
 
-  function bandColour(band: number): string {
-    const bands = bandCount(layout);
-    if (bands === 1) return "var(--accent)";
-    return `var(--band-${Math.round((band * 3) / (bands - 1))})`;
-  }
-
   function feeds(side: Side): ("A" | "B")[] {
     if (source === "mono") return ["A"];
     if (side === "L") return ["A"];
@@ -45,7 +40,7 @@
   }
 
   const wires = $derived(layout.outputs.flatMap((output, index) => (output
-    ? feeds(output.side).map((input) => ({ key: `${input}${index}`, d: wire(input, index), colour: bandColour(output.band) }))
+    ? feeds(output.side).map((input) => ({ key: `${input}${index}`, d: wire(input, index), colour: bandColour(bandCount(layout), output.band) }))
     : [])));
 </script>
 
@@ -60,7 +55,7 @@
       </g>
     {/each}
     {#each layout.outputs as output, index (index)}
-      <g class="output" class:spare={!output} style:--band={output ? bandColour(output.band) : undefined}>
+      <g class="output" class:spare={!output} style:--band={output ? bandColour(bandCount(layout), output.band) : undefined}>
         <rect x={OUT_X} y={outY(index)} width={OUT_W} height={BOX_H} rx="2" />
         <text x={OUT_X + OUT_W / 2} y={outY(index) + 11.5}>{output ? output.name : "Spare"}</text>
       </g>

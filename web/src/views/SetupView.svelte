@@ -11,26 +11,24 @@
   import Toggle from "../ui/Toggle.svelte";
   import ConfirmDialog from "../ui/ConfirmDialog.svelte";
   import { stepGainDb } from "../ui/faderTaper.ts";
-  import { formatDb, formatFixed, formatHz } from "../ui/format.ts";
+  import { formatDb, formatHz } from "../ui/format.ts";
   import { openTextFile, saveTextFile } from "../ui/files.ts";
   import { buildSetup } from "../setup/build.ts";
   import { describeChanges, previewModel } from "../setup/review.ts";
   import { setupDraft as draft } from "../setup/draft.svelte.ts";
   import { BUILTIN_PRESETS, PRESET_NAME_MAX_LENGTH, SetupFileError } from "../setup/library.ts";
   import {
-    CROSSOVER_RANGE, DISTANCE_RANGE, ENVIRONMENTS, ENVIRONMENT_IDS, LAYOUTS, LAYOUT_IDS, ROLE_NAMES, SHELF_RANGE,
-    SLOPES, SOURCES, SUBSONIC_RANGE, TEMPERATURE_RANGE, THRESHOLD_RANGE, TRIM_RANGE, alignmentDelaysMs, checkRecipe,
+    CROSSOVER_RANGE, ENVIRONMENTS, ENVIRONMENT_IDS, LAYOUTS, LAYOUT_IDS, ROLE_NAMES, SHELF_RANGE,
+    SLOPES, SOURCES, SUBSONIC_RANGE, THRESHOLD_RANGE, TRIM_RANGE, checkRecipe,
     layoutRoles, usedOutputs, withEnvironment, withLayout, type Recipe, type Role, type SlopeId, type SourceId,
   } from "../setup/recipe.ts";
   import LayoutCard from "../setup/LayoutCard.svelte";
   import CrossoverPreview from "../setup/CrossoverPreview.svelte";
+  import AlignmentSection from "../setup/AlignmentSection.svelte";
 
   const SOURCE_NAMES: Record<SourceId, string> = { stereo: "Stereo A / B", mono: "Mono A" };
   const SLOPE_NAMES: Record<SlopeId, string> = { LR24: "Linkwitz-Riley 24 dB/oct", LR12: "Linkwitz-Riley 12 dB/oct" };
   const SHELF_STEP_DB = 0.5;
-  const TEMPERATURE_STEP = 1;
-  const DISTANCE_STEP = 0.1;
-  const FEET_PER_METRE = 1 / 0.3048;
   const OUTPUTS = Array.from({ length: OUTPUT_COUNT }, (_, i) => OUT_BASE + i);
   /** Matches the two-column rule in the styles below. */
   const WIDE_LAYOUT_QUERY = "(min-width: 1000px)";
@@ -75,16 +73,6 @@
   let confirmDelete = $state(false);
   let fileIssues = $state<string[]>([]);
   const replacing = $derived(draft.customs.find((preset) => preset.name.toLowerCase() === saveName.trim().toLowerCase()));
-
-  // ---- units ----
-  const metric = $derived(settings.value.distanceUnit === "m");
-  const celsius = $derived(settings.value.temperatureUnit === "C");
-  const toDistance = (metres: number) => (metric ? metres : metres * FEET_PER_METRE);
-  const fromDistance = (shown: number) => clampTo(metric ? shown : shown / FEET_PER_METRE, DISTANCE_RANGE.min, DISTANCE_RANGE.max);
-  const toTemperature = (c: number) => (celsius ? c : (c * 9) / 5 + 32);
-  const fromTemperature = (shown: number) => clampTo(celsius ? shown : ((shown - 32) * 5) / 9, TEMPERATURE_RANGE.min, TEMPERATURE_RANGE.max);
-  const clampTo = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-  const delays = $derived(alignmentDelaysMs(recipe));
 
   // ---- labels ----
   function bandName(band: number): string {
@@ -276,42 +264,7 @@
       <p class="faint">The low shelf goes on the lowest band and the high shelf on the highest, in PEQ bands 1 and 7.</p>
     </Section>
 
-    <Section title="Time alignment">
-      {#snippet actions()}
-        <Toggle pressed={recipe.alignment.enabled} title="Time alignment"
-                onchange={(on) => draft.edit((r) => { r.alignment.enabled = on; })}>{recipe.alignment.enabled ? "On" : "Off"}</Toggle>
-      {/snippet}
-      {#if recipe.alignment.enabled}
-        <p class="dim">Measure from the listening spot to each speaker. The nearer speakers are delayed so that every sound arrives with the farthest one.</p>
-        <div class="fields">
-          <NumberField label="Air temperature" value={toTemperature(recipe.alignment.tempC)} min={toTemperature(TEMPERATURE_RANGE.min)}
-                       max={toTemperature(TEMPERATURE_RANGE.max)} step={TEMPERATURE_STEP} format={(v) => formatFixed(v, 0)}
-                       unit="°{settings.value.temperatureUnit}" error={problemAt("alignment.tempC")}
-                       onchange={(value) => draft.edit((r) => { r.alignment.tempC = fromTemperature(value); })} />
-        </div>
-        <table class="table">
-          <thead><tr><th>Output</th><th>Distance</th><th>Delay</th></tr></thead>
-          <tbody>
-            {#each used as output (output.ch)}
-              <tr>
-                <td>{output.slot.name} <span class="faint">{channelLabel(output.ch)}</span></td>
-                <td>
-                  <NumberField ariaLabel="Distance to {output.slot.name}" value={toDistance(recipe.alignment.distancesM[output.index] ?? 0)}
-                               min={toDistance(DISTANCE_RANGE.min)} max={toDistance(DISTANCE_RANGE.max)} step={DISTANCE_STEP}
-                               format={(v) => formatFixed(v, 2)} unit={settings.value.distanceUnit}
-                               error={problemAt(`alignment.distancesM.${output.index}`)}
-                               onchange={(value) => draft.edit((r) => { r.alignment.distancesM[output.index] = fromDistance(value); })} />
-                </td>
-                <td class="num">{formatFixed(delays[output.index] ?? 0, 2)} ms</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-        {#if problemAt("alignment.delay")}<p class="error">{problemAt("alignment.delay")}</p>{/if}
-      {:else}
-        <p class="dim">Off: the output delays are left as they are.</p>
-      {/if}
-    </Section>
+    <AlignmentSection {recipe} {problemAt} valid={problems.length === 0} />
 
     <Section title="Protection">
       {#snippet actions()}
@@ -418,7 +371,6 @@
   .table th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text-dim); padding: 2px 12px 4px 0; }
   .table td { padding: 3px 12px 3px 0; vertical-align: top; }
   .table td:first-child { padding-top: 8px; white-space: nowrap; }
-  .table td.num { padding-top: 8px; }
   p { margin: 0 0 8px; }
   .warning { color: var(--warn); }
   .ok { color: var(--ok); }
