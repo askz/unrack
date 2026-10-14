@@ -178,6 +178,7 @@ export function defaultSpeakers(layout: LayoutId): PerOutput<SpeakerPosition> {
   })) as PerOutput<SpeakerPosition>;
 }
 
+/** Alignment off, positions mode, role-based heights, default crowd, suggested point, no offsets. */
 export function defaultAlignment(layout: LayoutId): Alignment {
   return {
     enabled: false,
@@ -363,7 +364,7 @@ function checkAlignment(value: unknown, recipe: Record<string, unknown>, layout:
   const delays = outputDelaysMs({ outputs: layout.outputs, crossoversHz: crossovers, alignment: value as unknown as Alignment });
   const longest = Math.max(...delays.map((delay) => delay ?? 0));
   if (longest > DELAY_RANGE.max + EPSILON) {
-    report("alignment.delay", `The speakers are too far apart: the nearest one would need ${longest.toFixed(0)} ms of delay (at most ${DELAY_RANGE.max.toFixed(0)} ms)`);
+    report("alignment.delay", `The speakers are too far apart: one of them would need ${longest.toFixed(0)} ms of delay (at most ${DELAY_RANGE.max.toFixed(0)} ms)`);
   }
 }
 
