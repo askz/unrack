@@ -136,10 +136,7 @@ export class TuningRunner {
     const snapshot = this.state.interrupted;
     if (!snapshot || this.state.running || !this.device.connected) return;
     this.state.interrupted = null;
-    await this.settle(snapshot, [
-      this.device.testTone(ToneSource.OFF),
-      this.device.applyGroup(RESTORE_LABEL, restoreAfterTuning(snapshot, false)),
-    ]);
+    await this.putBack(snapshot, RESTORE_LABEL, restoreAfterTuning(snapshot, false));
   }
 
   /** Forget an interrupted session: the tone goes off, the outputs stay as they are. */
@@ -155,6 +152,7 @@ export class TuningRunner {
     const run = this.state.running;
     if (!run) return;
     this.close();
+    this.endGroup();
     this.state.interrupted = run.snapshot;
   }
 
@@ -164,28 +162,39 @@ export class TuningRunner {
   }
 
   private async finish(run: RunningTuning, keepDelays: boolean): Promise<void> {
-    // the tone goes off before anything is unmuted (the device handles commands in order)
-    const sends = [
-      this.device.testTone(ToneSource.OFF),
-      this.device.applyGroup(labelOf(run), restoreAfterTuning(run.snapshot, keepDelays)),
-    ];
     this.close();
-    await this.settle(run.snapshot, sends);
+    await this.putBack(run.snapshot, labelOf(run), restoreAfterTuning(run.snapshot, keepDelays));
   }
 
   private close(): void {
-    this.device.endGroup();
-    this.device.resetOutputSnapshots();
     this.state.running = null;
     this.state.starting = false;
   }
 
-  /** Forget the snapshot only once the device confirmed it is put back. */
-  private async settle(snapshot: TuningSnapshot, sends: Promise<boolean>[]): Promise<void> {
+  /** Ends a session's undo group (after its restore is recorded); harmless without one. */
+  private endGroup(): void {
+    this.device.endGroup();
+    this.device.resetOutputSnapshots();
+  }
+
+  /**
+   * Tone off, then the restore writes. The snapshot is forgotten only once the device
+   * confirmed both; otherwise the Restore notice comes back.
+   */
+  private async putBack(snapshot: TuningSnapshot, label: string, assignments: ParamAssignment[]): Promise<void> {
     this.settling++;
     try {
-      const confirmed = (await Promise.all(sends)).every(Boolean);
-      if (confirmed) clearTuningSnapshot(this.storage);
+      // unmuting while the tone still plays would put it on every routed output
+      const silenced = await this.device.testTone(ToneSource.OFF);
+      if (!silenced) {
+        this.endGroup();
+        this.device.report(label, "Could not stop the tone; the other outputs stay muted");
+        this.state.interrupted = snapshot;
+        return;
+      }
+      const restored = this.device.applyGroup(label, assignments);
+      this.endGroup();
+      if (await restored) clearTuningSnapshot(this.storage);
       else this.state.interrupted = snapshot;
     } finally {
       this.settling--;

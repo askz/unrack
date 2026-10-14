@@ -204,18 +204,40 @@ test("Cancel turns the tone off before restoring everything, the offset untouche
   assert.equal(loadTuningSnapshot(storage), null);
 });
 
-test("an unconfirmed tone off or restore keeps the snapshot and offers the restore", async () => {
-  for (const failing of ["tone", "restore"] as const) {
-    const { device, storage, state, snapshot, start, runner } = setup();
-    await start();
-    if (failing === "tone") device.toneResults.push(false);
-    else device.applyResults.push(false);
-    await runner.cancel();
-    assert.deepEqual(device.calls, [...STARTED, ...ENDED], failing);
-    assert.equal(state.running, null, failing);
-    assert.deepEqual(state.interrupted, snapshot, failing);
-    assert.deepEqual(loadTuningSnapshot(storage), snapshot, failing);
-  }
+test("an unconfirmed restore keeps the snapshot and offers the restore", async () => {
+  const { device, storage, state, snapshot, start, runner } = setup();
+  await start();
+  device.applyResults.push(false);
+  await runner.cancel();
+  assert.deepEqual(device.calls, [...STARTED, ...ENDED]);
+  assert.equal(state.running, null);
+  assert.deepEqual(state.interrupted, snapshot);
+  assert.deepEqual(loadTuningSnapshot(storage), snapshot);
+});
+
+test("nothing is unmuted until the device confirmed the tone is off", async () => {
+  const { device, start, runner } = setup();
+  await start();
+  const silenced = deferred();
+  device.toneResults.push(silenced);
+  const cancelled = runner.cancel();
+  await flush();
+  assert.deepEqual(device.calls, [...STARTED, "tone off"]);
+  silenced.resolve(true);
+  await cancelled;
+  assert.deepEqual(device.calls, [...STARTED, ...ENDED]);
+});
+
+test("an unconfirmed tone off leaves the outputs muted and offers the restore", async () => {
+  const { device, storage, state, snapshot, start, runner } = setup();
+  await start();
+  device.toneResults.push(false);
+  await runner.cancel();
+  assert.deepEqual(device.calls, [...STARTED, "tone off", "end", "reset snapshots"], "no restore writes");
+  assert.deepEqual(device.issues, [`${LABEL}: Could not stop the tone; the other outputs stay muted`]);
+  assert.equal(state.running, null);
+  assert.deepEqual(state.interrupted, snapshot);
+  assert.deepEqual(loadTuningSnapshot(storage), snapshot);
 });
 
 test("a new session waits until the previous one's restore is confirmed", async () => {
@@ -224,6 +246,7 @@ test("a new session waits until the previous one's restore is confirmed", async 
   const restored = deferred();
   device.applyResults.push(restored);
   const cancelled = runner.cancel();
+  await flush();
   await start();
   assert.deepEqual(device.calls, [...STARTED, ...ENDED], "refused while the restore is unconfirmed");
   restored.resolve(true);
@@ -257,7 +280,8 @@ test("Restore hides the notice while in flight and brings it back if it is not c
   const pending = runner.restoreInterrupted();
   assert.equal(state.interrupted, null);
   await runner.restoreInterrupted();
-  assert.deepEqual(device.calls, ["tone off", "apply Restore after fine-tuning"], "sent once");
+  await flush();
+  assert.deepEqual(device.calls, ["tone off", "apply Restore after fine-tuning", "end", "reset snapshots"], "sent once");
   assert.deepEqual(device.applied[0], restoreAfterTuning(stored, false));
   restored.resolve(false);
   await pending;
