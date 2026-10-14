@@ -1,11 +1,13 @@
 /* openDSP-4x4: flat, dense, neutral theme. One accent colour for selection/focus,
-   status colours only for status. */
+   status colours only for status. Dark by default; [data-theme="light"] below.
+   Density, text size and channel colours are set on the root element from Settings. */
 :root {
   color-scheme: dark;
   --bg: #111316;
   --surface: #181b1f;
   --surface-2: #1f2328;
   --surface-3: #272c32;
+  --surface-sunken: #15181c;
   --line: #2e333a;
   --line-strong: #3d434b;
   --text: #e3e6ea;
@@ -13,9 +15,16 @@
   --text-faint: #6b737e;
   --accent: #5b9dff;
   --accent-dim: #2b4a78;
+  --accent-hover: #33588f;
   --ok: #4cc38a;
   --warn: #e0a93b;
+  --warn-dim: #5c4516;
+  --warn-text: #ffe3a8;
   --bad: #e5534b;
+  --bad-dim: #5e2320;
+  --bad-text: #ffd3d0;
+  --on-status: #fff;
+  --meter-bg: #0b0d0f;
   --meter-lo: #3fae74;
   --meter-mid: #d6b13a;
   --meter-hi: #e5534b;
@@ -42,6 +51,37 @@
   line-height: 1.35;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef0f3;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --surface-3: #e3e7ec;
+  --surface-sunken: #f6f7f9;
+  --line: #d9dde3;
+  --line-strong: #bfc6cf;
+  --text: #1a1e23;
+  --text-dim: #4f5864;
+  --text-faint: #7b8490;
+  --accent: #2766cc;
+  --accent-dim: #d5e3fa;
+  --accent-hover: #c0d5f7;
+  --ok: #1d8553;
+  --warn: #9a6608;
+  --warn-dim: #fbebc4;
+  --warn-text: #5e3c00;
+  --bad: #c8352d;
+  --bad-dim: #f8d8d5;
+  --bad-text: #821a14;
+  --meter-bg: #dfe3e8;
+  --meter-lo: #2b9a5e;
+  --meter-mid: #c39718;
+  --meter-hi: #d4433a;
+  --graph-bg: #fbfcfd;
+  --graph-grid: #e5e8ec;
+  --graph-zero: #b9c0c9;
+}
+
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--text); overflow: hidden; }
@@ -61,8 +101,8 @@ button {
 button:hover:not(:disabled) { background: var(--surface-3); }
 button:disabled { opacity: .45; cursor: default; }
 button.primary { background: var(--accent-dim); border-color: var(--accent); }
-button.primary:hover:not(:disabled) { background: #33588f; }
-button.danger { border-color: var(--bad); color: #ffd3d0; }
+button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+button.danger { border-color: var(--bad); color: var(--bad-text); }
 button.ghost { background: transparent; border-color: transparent; }
 button.ghost:hover:not(:disabled) { background: var(--surface-3); }
 

@@ -10,9 +10,28 @@
   import SystemView from "./views/SystemView.svelte";
   import SetupView from "./views/SetupView.svelte";
   import { OUT_BASE } from "./state/model.ts";
+  import { settings } from "./state/settings.svelte.ts";
+  import { appearanceVars } from "./ui/appearance.ts";
 
   const SYSTEM_KEY = "9";
   const SETUP_KEY = "s";
+  const LIGHT_QUERY = "(prefers-color-scheme: light)";
+
+  let prefersLight = $state(matchMedia(LIGHT_QUERY).matches);
+
+  $effect(() => {
+    const query = matchMedia(LIGHT_QUERY);
+    const onChange = () => { prefersLight = query.matches; };
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  });
+
+  $effect(() => {
+    const { theme, vars } = appearanceVars(settings.value, prefersLight);
+    const root = document.documentElement;
+    root.dataset.theme = theme;
+    for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value);
+  });
 
   function isEditable(target: EventTarget | null): boolean {
     return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName));

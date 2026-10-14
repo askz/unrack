@@ -84,8 +84,8 @@
   .tab.channel .title { grid-row: 1; }
   .badges { display: flex; gap: 2px; justify-self: end; }
   .badge { font-size: 10px; font-weight: 700; padding: 0 3px; border-radius: 2px; background: var(--surface-3); color: var(--text-dim); }
-  .badge.mute { background: #5e2320; color: #ffd3d0; }
+  .badge.mute { background: var(--bad-dim); color: var(--bad-text); }
   .badge.solo { background: var(--accent-dim); color: var(--text); }
-  .badge.bad { background: var(--bad); color: #fff; }
+  .badge.bad { background: var(--bad); color: var(--on-status); }
   .level { grid-column: 1 / span 2; grid-row: 2; }
 </style>

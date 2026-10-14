@@ -37,8 +37,8 @@
 <style>
   .toggle { min-width: 34px; padding: 0 8px; font-weight: 600; font-size: 12px; }
   .toggle.on.accent { background: var(--accent-dim); border-color: var(--accent); }
-  .toggle.on.warn { background: #5c4516; border-color: var(--warn); color: #ffe3a8; }
-  .toggle.on.bad { background: #5e2320; border-color: var(--bad); color: #ffd3d0; }
+  .toggle.on.warn { background: var(--warn-dim); border-color: var(--warn); color: var(--warn-text); }
+  .toggle.on.bad { background: var(--bad-dim); border-color: var(--bad); color: var(--bad-text); }
   .toggle.unknown { border-style: dashed; color: var(--text-dim); }
   .toggle[data-status="failed"] { box-shadow: inset 0 -2px 0 var(--bad); }
   .toggle[data-status="offline"] { box-shadow: inset 0 -2px 0 var(--warn); }

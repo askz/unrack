@@ -159,7 +159,7 @@
   .buttons button { height: 24px; padding: 0 8px; }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   p { margin: 0 0 10px; }
-  .warning { color: #f0c27a; }
+  .warning { color: var(--warn); }
   .issues { margin: 0; padding: 0; list-style: none; max-height: 240px; overflow-y: auto; display: grid; gap: 4px; }
   a { color: var(--accent); }
 </style>

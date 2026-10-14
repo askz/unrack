@@ -43,7 +43,7 @@
 </div>
 
 <style>
-  .meter { position: relative; background: #0b0d0f; border: 1px solid var(--line); overflow: hidden; }
+  .meter { position: relative; background: var(--meter-bg); border: 1px solid var(--line); overflow: hidden; }
   .vertical { width: 8px; height: 100%; min-height: 24px; }
   .horizontal { height: 6px; width: 100%; }
   .fill { position: absolute; left: 0; bottom: 0; }

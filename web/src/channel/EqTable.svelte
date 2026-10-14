@@ -117,7 +117,7 @@
   td { padding: 3px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   tr.selected td { background: var(--surface-2); }
   tr.selected .c-id { box-shadow: inset 3px 0 0 var(--accent); }
-  tr.xo td { background: #15181c; }
+  tr.xo td { background: var(--surface-sunken); }
   tr.xo.off td:not(.c-type) { opacity: .6; }
   .c-id { width: 48px; font-weight: 600; }
   .c-on { width: 52px; }

@@ -185,16 +185,16 @@
 </div>
 
 <style>
-  .graph { position: relative; width: 100%; height: var(--eq-height, 260px); background: #0e1013; border: 1px solid var(--line); border-radius: var(--radius); }
+  .graph { position: relative; width: 100%; height: var(--eq-height, 260px); background: var(--graph-bg); border: 1px solid var(--line); border-radius: var(--radius); }
   svg { position: absolute; inset: 0; display: block; user-select: none; touch-action: pan-y; }
-  .grid line { stroke: #22262c; stroke-width: 1; }
-  .grid line.zero { stroke: #3a4048; }
+  .grid line { stroke: var(--graph-grid); stroke-width: 1; }
+  .grid line.zero { stroke: var(--graph-zero); }
   .grid text { fill: var(--text-faint); font: 10px var(--font-mono); }
   .xlabel { text-anchor: middle; }
   .ylabel { text-anchor: end; }
   .xo { stroke: var(--warn); stroke-width: 1; stroke-dasharray: 3 3; opacity: .7; }
   .sum { fill: none; stroke: var(--accent); stroke-width: 2; }
-  .band-fill { fill: rgb(91 157 255 / .12); stroke: rgb(91 157 255 / .45); stroke-width: 1; }
+  .band-fill { fill: color-mix(in srgb, var(--accent) 12%, transparent); stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: 1; }
   .handle { cursor: grab; touch-action: none; }
   .handle circle { fill: var(--surface-3); stroke: var(--text-dim); stroke-width: 1.5; }
   .handle text { fill: var(--text); font: 600 10px var(--font-mono); text-anchor: middle; pointer-events: none; }
