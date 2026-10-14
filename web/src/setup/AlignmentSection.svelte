@@ -17,6 +17,7 @@
     alignmentDelaysMs, bandCount, rigOf, usedOutputs, type Recipe,
   } from "./recipe.ts";
   import AlignmentDiagram from "./AlignmentDiagram.svelte";
+  import TuningPanel from "./TuningPanel.svelte";
 
   interface Props {
     recipe: Recipe;
@@ -143,6 +144,7 @@
       </tbody>
     </table>
     {#if problemAt("alignment.delay")}<p class="error">{problemAt("alignment.delay")}</p>{/if}
+    <TuningPanel {recipe} {valid} />
     <p class="faint">
       Distances cannot include the cabinets' own delay; the by-ear fine tuning corrects it at the alignment point. With an
       audience in front of ground-stacked subs, the subs arrive a little later, so slightly less sub delay is often better.

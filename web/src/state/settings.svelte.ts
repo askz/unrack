@@ -1,13 +1,6 @@
 // Reactive browser settings, saved to localStorage on every change.
-import { defaultSettings, loadSettings, parseSettings, saveSettings, type Settings, type StorageLike } from "./settings.ts";
-
-function browserStorage(): StorageLike | null {
-  try {
-    return typeof localStorage === "undefined" ? null : localStorage;
-  } catch {
-    return null; // storage access denied (privacy settings)
-  }
-}
+import { defaultSettings, loadSettings, parseSettings, saveSettings, type Settings } from "./settings.ts";
+import { browserStorage } from "./storage.ts";
 
 class SettingsStore {
   private readonly storage = browserStorage();

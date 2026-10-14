@@ -1,7 +1,7 @@
 // The Setup tab's form: the recipe being edited (kept across reloads), the preset it
 // started from, and this browser's custom presets.
 import { sameValue } from "../state/model.ts";
-import type { StorageLike } from "../state/settings.ts";
+import { browserStorage } from "../state/storage.ts";
 import {
   BUILTIN_PRESETS, PRESET_NAME_MAX_LENGTH, loadCustomPresets, loadDraft, newPresetId, parseSetupFile,
   saveCustomPresets, saveDraft, serializeSetupFile, setupFileName, type SetupPreset,
@@ -10,14 +10,6 @@ import { LAYOUTS, checkRecipe, defaultRecipe, type Recipe } from "./recipe.ts";
 
 const SELECTED_KEY = "opendsp-4x4.setup-selected";
 const DEFAULT_PRESET_ID = "builtin:2.1";
-
-function browserStorage(): StorageLike | null {
-  try {
-    return typeof localStorage === "undefined" ? null : localStorage;
-  } catch {
-    return null;
-  }
-}
 
 const copy = (recipe: Recipe): Recipe => JSON.parse(JSON.stringify(recipe)) as Recipe;
 
