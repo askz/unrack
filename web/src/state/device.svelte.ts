@@ -155,13 +155,18 @@ export class DeviceStore {
   linkEq(a: number, b: number): void { this.guard("Link EQ", () => this.editor.link(a, b)); }
   unlinkEq(ch: number): void { this.editor.unlink(ch); }
   undo(): void {
+    if (this.editor.grouping) return; // a guided session is one step, ended by its Done or Cancel
     this.clearSolo();
     void this.editor.undo();
   }
   redo(): void {
+    if (this.editor.grouping) return;
     this.clearSolo();
     void this.editor.redo();
   }
+  /** Edits until endGroup() form one undo step with this label. */
+  beginGroup(label: string): void { this.editor.beginGroup(label); }
+  endGroup(): void { this.editor.endGroup(); }
   /** End a gesture (pointer up) so the next edit is a separate undo step. */
   seal(): void { this.editor.seal(); }
   resendUnsynced(): void { void this.editor.resendUnsynced(); }
@@ -236,7 +241,8 @@ export class DeviceStore {
     this.soloSnapshot = null;
   }
 
-  private applyGroup(label: string, assignments: ParamAssignment[]): void {
+  /** Several edits as one undo step (inside a group, part of the group's step). */
+  applyGroup(label: string, assignments: ParamAssignment[]): void {
     this.guard(label, () => this.editor.setMany(label, assignments));
     this.editor.seal();
   }

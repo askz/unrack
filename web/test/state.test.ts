@@ -105,6 +105,40 @@ test("a new edit clears the redo stack", () => {
   assert.equal(history.redoLabel, null);
 });
 
+test("a history group is one entry across time and keys; ending it drops changes that came back", () => {
+  let now = 0;
+  const history = new History<number>({ now: () => now, mergeWindowMs: 500 });
+  history.record("before", [{ key: "x", before: 0, after: 1 }]);
+  history.beginGroup("session");
+  assert.equal(history.grouping, true);
+  history.record("mute", [{ key: "m", before: 0, after: 1 }], "m");
+  now = 5000;
+  history.record("delay", [{ key: "d", before: 0, after: 2 }]);
+  history.record("delay", [{ key: "d", before: 2, after: 3 }], "d");
+  history.record("unmute", [{ key: "m", before: 1, after: 0 }]);
+  history.endGroup();
+  assert.equal(history.grouping, false);
+  const entry = history.undo()!;
+  assert.equal(entry.label, "session");
+  assert.deepEqual(entry.changes, [{ key: "d", before: 0, after: 3 }]);
+  assert.equal(history.undo()!.label, "before");
+});
+
+test("a group that ends where it started leaves no entry; undo ends a group", () => {
+  const history = new History<number>();
+  history.beginGroup("cancelled");
+  history.record("a", [{ key: "a", before: 0, after: 1 }]);
+  history.record("a", [{ key: "a", before: 1, after: 0 }]);
+  history.endGroup();
+  assert.equal(history.undoLabel, null);
+  history.beginGroup("open");
+  history.record("b", [{ key: "b", before: 0, after: 1 }]);
+  history.undo();
+  assert.equal(history.grouping, false);
+  history.record("c", [{ key: "c", before: 0, after: 1 }]);
+  assert.equal(history.undoLabel, "c");
+});
+
 // ---- editor ----
 
 async function editorWithDevice(device = new MockDsp()) {
@@ -169,6 +203,20 @@ test("undo and redo restore the value on the device", async () => {
   await editor.redo();
   assert.equal(state.model.channels[OUT2]!.delayMs, 5);
   assert.deepEqual(device.receivedCodes(), [Command.DELAY, Command.DELAY, Command.DELAY]);
+});
+
+test("an editor group is one undo step with its label", async () => {
+  const { state, editor } = await editorWithDevice();
+  editor.beginGroup("Fine-tune Sub ↔ Top L");
+  await editor.setMany("Tuning", [{ ref: { kind: "mute", ch: OUT2 }, value: true }, { ref: { kind: "polarity", ch: OUT1 }, value: true }]);
+  await editor.setMany("Tuning", [{ ref: { kind: "delay", ch: OUT1 }, value: 2 }]);
+  await editor.setMany("Tuning", [{ ref: { kind: "mute", ch: OUT2 }, value: false }, { ref: { kind: "polarity", ch: OUT1 }, value: false }]);
+  editor.endGroup();
+  assert.equal(editor.grouping, false);
+  assert.equal(state.undoLabel, "Fine-tune Sub ↔ Top L");
+  await editor.undo();
+  assert.equal(state.model.channels[OUT1]!.delayMs, 0);
+  assert.equal(state.undoLabel, null);
 });
 
 test("linked outputs mirror EQ edits, and one undo reverts both", async () => {

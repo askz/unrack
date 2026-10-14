@@ -66,7 +66,7 @@ export class Editor {
   constructor(state: EditorState, deps: EditorDeps) {
     this.state = state;
     this.deps = deps;
-    this.history = new History<Value>({ now: deps.now });
+    this.history = new History<Value>({ now: deps.now, same: sameValue });
   }
 
   get(ref: ParamRef): Value {
@@ -115,6 +115,20 @@ export class Editor {
   /** End the current gesture (pointer up): the next edit starts a new undo step. */
   seal(): void {
     this.history.seal();
+  }
+
+  /** Edits until endGroup() form one undo step with this label (a guided session). */
+  beginGroup(label: string): void {
+    this.history.beginGroup(label);
+  }
+
+  endGroup(): void {
+    this.history.endGroup();
+    this.refreshLabels();
+  }
+
+  get grouping(): boolean {
+    return this.history.grouping;
   }
 
   /** Copy one output's EQ (crossovers + 7 bands) onto another. */
