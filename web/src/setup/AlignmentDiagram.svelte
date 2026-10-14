@@ -150,10 +150,12 @@
       {#each groups as group (group.key)}
         {@const end = labelAtEnd(group.xM)}
         {@const labelX = end ? x(group.xM) - BOX / 2 - 4 : x(group.xM) + BOX / 2 + 4}
-        <rect class="speaker" x={x(group.xM) - BOX / 2} y={y(group.heightM) - BOX / 2} width={BOX} height={BOX} rx="2"
+        {@const boxY = y(group.heightM)}
+        {@const nearFloor = boxY + 12 > y(0) - 2}
+        <rect class="speaker" x={x(group.xM) - BOX / 2} y={boxY - BOX / 2} width={BOX} height={BOX} rx="2"
               style:--band={bandColour(bands, group.band)} />
-        <text class="name" class:end x={labelX} y={y(group.heightM) - 2}>{group.label}</text>
-        <text class="figure" class:end x={labelX} y={y(group.heightM) + 10}>
+        <text class="name" class:end x={labelX} y={nearFloor ? boxY - 14 : boxY - 2}>{group.label}</text>
+        <text class="figure" class:end x={labelX} y={nearFloor ? boxY - 3 : boxY + 10}>
           {distance(group.pathM)}, {formatFixed((group.pathM / speed) * 1000, 1)} ms
         </text>
       {/each}
