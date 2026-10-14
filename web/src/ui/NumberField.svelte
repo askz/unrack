@@ -18,6 +18,8 @@
     /** Linear step, or the multiplicative ratio per step when log is set. */
     step: number;
     log?: boolean;
+    /** Linear stepping rule (e.g. gain, whose device resolution changes with the value); default from + delta. */
+    stepper?: (from: number, delta: number) => number;
     format: (value: number) => string;
     unit?: string;
     label?: string;
@@ -29,7 +31,7 @@
   }
 
   let {
-    value, onchange, onend, min, max, step, log = false, format, unit = "", label = "", ariaLabel,
+    value, onchange, onend, min, max, step, log = false, stepper, format, unit = "", label = "", ariaLabel,
     status, disabled = false, width = "88px",
   }: Props = $props();
 
@@ -42,7 +44,9 @@
   let drag: { startY: number; startValue: number; moved: boolean; pointerId: number } | null = null;
 
   const clamp = (v: number) => Math.min(max, Math.max(min, v));
-  const stepBy = (from: number, steps: number) => clamp(log ? from * Math.pow(step, steps) : from + steps * step);
+  const stepBy = (from: number, steps: number) => clamp(
+    log ? from * Math.pow(step, steps) : stepper ? stepper(from, steps * step) : from + steps * step,
+  );
   const shown = $derived(draft ?? format(value));
   const title = $derived(
     status?.status === "failed" ? `Not applied on the device: ${status.error ?? "write failed"}`

@@ -31,11 +31,14 @@ const GAIN_LOW_UNITS_PER_DB = 2;
 const GAIN_MIN_DB = -60;
 export const GAIN_MAX_RAW = 400; // +12 dB
 
-export function gainDbToRaw(db: number): number {
-  const raw = db >= gainRawToDb(GAIN_KNEE_RAW)
+/** Unrounded raw level for a dB value (the fader uses it as its travel). */
+export function gainDbToRawContinuous(db: number): number {
+  return db >= gainRawToDb(GAIN_KNEE_RAW)
     ? GAIN_ZERO_DB + db * GAIN_UNITS_PER_DB
     : (db - GAIN_MIN_DB) * GAIN_LOW_UNITS_PER_DB;
-  return Math.max(0, Math.min(GAIN_MAX_RAW, Math.round(raw)));
+}
+export function gainDbToRaw(db: number): number {
+  return Math.max(0, Math.min(GAIN_MAX_RAW, Math.round(gainDbToRawContinuous(db))));
 }
 export function gainRawToDb(raw: number): number {
   return raw >= GAIN_KNEE_RAW
