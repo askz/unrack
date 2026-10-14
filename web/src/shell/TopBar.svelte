@@ -39,6 +39,14 @@
   </div>
 
   <div class="group">
+    <button class:danger={device.allOutputsMuted}
+            onclick={() => (device.allOutputsMuted ? device.unmuteAll() : device.muteAll())}
+            title={device.allOutputsMuted ? "Unmute the outputs (back to how they were before Mute all)" : "Mute all four outputs"}>
+      {device.allOutputsMuted ? "Unmute all" : "Mute all"}
+    </button>
+  </div>
+
+  <div class="group">
     <button disabled={busy} onclick={importPresetFile} title="Apply a preset file to the live settings">Import…</button>
     <button onclick={exportPresetFile} title="Save the live settings to a file">Export…</button>
   </div>

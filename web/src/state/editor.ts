@@ -83,15 +83,16 @@ export class Editor {
     return allSucceeded(sends);
   }
 
-  /** Several edits as one undo step (copy EQ, file import). Null values are left untouched. */
-  setMany(label: string, assignments: ParamAssignment[]): Promise<boolean> {
+  /** Several edits as one undo step (copy EQ, file import, group actions). With a merge key,
+   *  consecutive calls with the same key extend that step until seal(). Null values are left untouched. */
+  setMany(label: string, assignments: ParamAssignment[], options: { mergeKey?: string } = {}): Promise<boolean> {
     const normalized = assignments
       .filter((assignment) => assignment.value !== null)
       .map(({ ref, value }) => ({ ref, value: normalizeParam(ref, value as ParamValue, this.deps.cal) }));
     const sends: Promise<boolean>[] = [];
     const changes = normalized.flatMap(({ ref, value }) => this.apply(ref, value, sends));
     if (changes.length === 0) return Promise.resolve(true);
-    this.history.record(label, changes);
+    this.history.record(label, changes, options.mergeKey);
     this.touch();
     return allSucceeded(sends);
   }

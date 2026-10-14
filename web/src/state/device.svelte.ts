@@ -4,9 +4,10 @@
 import { Connection, type ConnectionPhase, type SyncReason } from "./connection.ts";
 import { Editor, createEditorState, type EditorState, type SyncEntry } from "./editor.ts";
 import { modelFromReadback } from "./hydrate.ts";
-import { paramKey, describeParam, type ParamRef, type ParamValue } from "./params.ts";
+import { paramKey, describeParam, type ParamAssignment, type ParamRef, type ParamValue } from "./params.ts";
 import { parsePresetFile, presetFileName, serializePresetFile, PresetFileError } from "./presetFile.ts";
-import { CHANNEL_COUNT, DEFAULT_BAND_FREQS, defaultBand, defaultModel, type Channel, type Compressor, type Gate } from "./model.ts";
+import { CHANNEL_COUNT, DEFAULT_BAND_FREQS, OUT_BASE, defaultBand, defaultModel, type Channel, type Compressor, type Gate } from "./model.ts";
+import { muteAllAssignments, outputMutes, restoreAssignments, soloAssignments, type MuteSnapshot } from "./solo.ts";
 import { platformLinkProvider } from "../transport/platform.ts";
 import { ProtocolError, emptyStats, type ChannelStats } from "../transport/channel.ts";
 import type { Dsp, DeviceInfo } from "../dsp.ts";
@@ -45,6 +46,10 @@ export class DeviceStore {
   edit = $state<EditorState>(createEditorState(defaultModel()));
   meters = $state<number[]>(new Array(CHANNEL_COUNT).fill(0));
   selected = $state(-1); // selected channel index; -1 = nothing open
+  /** Soloed outputs (addresses); while non-empty every other output is muted. */
+  soloed = $state<number[]>([]);
+  private soloSnapshot: MuteSnapshot | null = null;
+  private muteAllSnapshot: MuteSnapshot | null = null;
 
   readonly connection: Connection;
   readonly editor: Editor;
@@ -60,7 +65,10 @@ export class DeviceStore {
     this.connection = new Connection(platformLinkProvider(), {
       sync: (dsp, reason) => this.hydrate(dsp, reason),
       started: (dsp) => this.startMeters(dsp),
-      ended: () => this.stopMeters(),
+      ended: () => {
+        this.stopMeters();
+        this.clearSolo();
+      },
     });
     this.connection.onChange((snapshot) => {
       this.phase = snapshot.phase;
@@ -91,6 +99,7 @@ export class DeviceStore {
     for (const entry of Object.values(this.edit.sync)) counts[entry.status]++;
     return counts;
   }
+  get allOutputsMuted(): boolean { return outputMutes(this.edit.model).every((mute) => mute === true); }
   ch(index: number): Channel { return this.edit.model.channels[index]!; }
   syncOf(ref: ParamRef): SyncEntry | undefined { return this.edit.sync[paramKey(ref)]; }
   collapse(): void { this.selected = -1; }
@@ -105,7 +114,10 @@ export class DeviceStore {
   // --- edits (all go through the Editor) ---
 
   setGainDb(ch: number, db: number): void { this.change({ kind: "gain", ch }, db); }
-  setMute(ch: number, on: boolean): void { this.change({ kind: "mute", ch }, on); }
+  setMute(ch: number, on: boolean): void {
+    this.muteAllSnapshot = null;
+    this.change({ kind: "mute", ch }, on);
+  }
   setPolarity(ch: number, invert: boolean): void { this.change({ kind: "polarity", ch }, invert); }
   setDelayMs(ch: number, ms: number): void { this.change({ kind: "delay", ch }, ms); }
   setRouting(outCh: number, mask: number): void { this.change({ kind: "routing", ch: outCh }, mask); }
@@ -123,8 +135,14 @@ export class DeviceStore {
   copyEqTo(src: number, dst: number): void { this.guard("Copy EQ", () => this.editor.copyEq(src, dst)); }
   linkEq(a: number, b: number): void { this.guard("Link EQ", () => this.editor.link(a, b)); }
   unlinkEq(ch: number): void { this.editor.unlink(ch); }
-  undo(): void { void this.editor.undo(); }
-  redo(): void { void this.editor.redo(); }
+  undo(): void {
+    this.clearSolo();
+    void this.editor.undo();
+  }
+  redo(): void {
+    this.clearSolo();
+    void this.editor.redo();
+  }
   /** End a gesture (pointer up) so the next edit is a separate undo step. */
   seal(): void { this.editor.seal(); }
   resendUnsynced(): void { void this.editor.resendUnsynced(); }
@@ -139,6 +157,56 @@ export class DeviceStore {
     } catch (error) {
       this.report(label, error);
     }
+  }
+
+  // --- output group actions ---
+
+  /** New gains for Out 1..4; calls until seal() form one undo step. */
+  trimOutputs(gains: readonly number[]): void {
+    const assignments = gains.map((db, i): ParamAssignment => ({ ref: { kind: "gain", ch: OUT_BASE + i }, value: db }));
+    this.guard("Trim outputs", () => this.editor.setMany("Trim outputs", assignments, { mergeKey: "trim-outputs" }));
+  }
+
+  muteAll(): void {
+    const snapshot = this.soloSnapshot ?? outputMutes(this.edit.model);
+    this.clearSolo();
+    this.muteAllSnapshot = snapshot;
+    this.applyGroup("Mute all", muteAllAssignments());
+  }
+
+  /** Back to the mute states from before Mute all (all unmuted if they are unknown). */
+  unmuteAll(): void {
+    this.clearSolo();
+    const assignments = restoreAssignments(this.muteAllSnapshot);
+    this.muteAllSnapshot = null;
+    this.applyGroup("Unmute all", assignments);
+  }
+
+  toggleSolo(ch: number): void {
+    const next = new Set(this.soloed);
+    const adding = !next.has(ch);
+    if (adding) next.add(ch);
+    else next.delete(ch);
+    if (this.soloed.length === 0) this.soloSnapshot = outputMutes(this.edit.model);
+    if (next.size === 0) {
+      const assignments = restoreAssignments(this.soloSnapshot);
+      this.clearSolo();
+      this.applyGroup("Solo off", assignments);
+      return;
+    }
+    this.soloed = [...next].sort((a, b) => a - b);
+    const name = this.ch(ch).name;
+    this.applyGroup(adding ? `Solo ${name}` : `Unsolo ${name}`, soloAssignments(next));
+  }
+
+  private clearSolo(): void {
+    this.soloed = [];
+    this.soloSnapshot = null;
+  }
+
+  private applyGroup(label: string, assignments: ParamAssignment[]): void {
+    this.guard(label, () => this.editor.setMany(label, assignments));
+    this.editor.seal();
   }
 
   // --- presets ---
@@ -197,6 +265,8 @@ export class DeviceStore {
     this.editor.load(modelFromReadback(image, this.cal, reason === "resync" ? this.edit.model : undefined));
     this.activePreset = activePreset;
     this.presetNames = presetNames;
+    this.clearSolo();
+    this.muteAllSnapshot = null;
   }
 
   // --- meters ---

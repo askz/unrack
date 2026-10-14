@@ -222,6 +222,21 @@ test("copyEq copies crossovers and bands as one undo step", async () => {
   assert.equal(state.model.channels[OUT2]!.eq!.hpf.slope, 0);
 });
 
+test("setMany with a merge key is one undo step per gesture", async () => {
+  const { state, editor } = await editorWithDevice();
+  const trim = (db: number) => [OUT1, OUT2].map((ch) => ({ ref: { kind: "gain" as const, ch }, value: db }));
+  await editor.setMany("Trim outputs", trim(-1), { mergeKey: "trim" });
+  await editor.setMany("Trim outputs", trim(-2), { mergeKey: "trim" });
+  editor.seal();
+  await editor.setMany("Trim outputs", trim(-3), { mergeKey: "trim" });
+  await editor.undo();
+  assert.equal(state.model.channels[OUT1]!.gainDb, -2);
+  await editor.undo();
+  assert.equal(state.model.channels[OUT1]!.gainDb, 0);
+  assert.equal(state.model.channels[OUT2]!.gainDb, 0);
+  assert.equal(state.undoLabel, null);
+});
+
 // ---- hydrate ----
 
 test("readback of a factory-default unit: 0 dB everywhere, mute and bypass unknown", () => {

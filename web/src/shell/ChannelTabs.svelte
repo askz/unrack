@@ -56,6 +56,7 @@
       <span class="title">{title(view)}</span>
       {#if channel}
         <span class="badges">
+          {#if device.soloed.includes(view as number)}<span class="badge solo" title="Soloed">S</span>{/if}
           {#if channel.mute === true}<span class="badge mute">M</span>{/if}
           {#if channel.polarity}<span class="badge">Ø</span>{/if}
           {#if typeof view === "number" && unsyncedChannels.has(view)}<span class="badge bad" title="Some settings are not on the device">!</span>{/if}
@@ -85,6 +86,7 @@
   .badges { display: flex; gap: 2px; justify-self: end; }
   .badge { font-size: 10px; font-weight: 700; padding: 0 3px; border-radius: 2px; background: var(--surface-3); color: var(--text-dim); }
   .badge.mute { background: #5e2320; color: #ffd3d0; }
+  .badge.solo { background: var(--accent-dim); color: var(--text); }
   .badge.bad { background: var(--bad); color: #fff; }
   .level { grid-column: 1 / span 2; grid-row: 2; }
 </style>
