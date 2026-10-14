@@ -138,7 +138,8 @@
         {#if draft.modified}<span class="tag">modified</span>{/if}
       {/snippet}
       <div class="row">
-        <select class="preset" value={draft.presetId} aria-label="Preset" onchange={(event) => draft.choose(event.currentTarget.value)}>
+        <select class="preset" value={draft.presetId} aria-label="Preset" disabled={tuning.running !== null}
+                title={tuning.running ? TUNING_LOCKED : undefined} onchange={(event) => draft.choose(event.currentTarget.value)}>
           <optgroup label="Built-in">
             {#each BUILTIN_PRESETS as preset (preset.id)}<option value={preset.id}>{preset.name}</option>{/each}
           </optgroup>
@@ -148,10 +149,11 @@
             </optgroup>
           {/if}
         </select>
-        <button disabled={!draft.modified || !draft.selected} onclick={() => draft.revert()}>Revert</button>
+        <button disabled={!draft.modified || !draft.selected || tuning.running !== null}
+                title={tuning.running ? TUNING_LOCKED : undefined} onclick={() => draft.revert()}>Revert</button>
         <button disabled={problems.length > 0} onclick={startSave}>Save as…</button>
         <button onclick={exportFile}>Export…</button>
-        <button onclick={importFile}>Import…</button>
+        <button disabled={tuning.running !== null} title={tuning.running ? TUNING_LOCKED : undefined} onclick={importFile}>Import…</button>
         {#if draft.selected && !draft.selected.builtin}<button class="danger" onclick={() => (confirmDelete = true)}>Delete</button>{/if}
       </div>
       {#if saving}
@@ -184,6 +186,7 @@
       <div class="cards">
         {#each LAYOUT_IDS as id (id)}
           <LayoutCard layout={LAYOUTS[id]} source={recipe.source} selected={recipe.layout === id}
+                      disabled={tuning.running !== null} title={tuning.running ? TUNING_LOCKED : undefined}
                       onselect={() => draft.update(withLayout(recipe, id))} />
         {/each}
       </div>

@@ -8,10 +8,12 @@
     layout: Layout;
     source: SourceId;
     selected: boolean;
+    disabled?: boolean;
+    title?: string;
     onselect: () => void;
   }
 
-  let { layout, source, selected, onselect }: Props = $props();
+  let { layout, source, selected, disabled = false, title, onselect }: Props = $props();
 
   const WIDTH = 168;
   const HEIGHT = 92;
@@ -44,7 +46,7 @@
     : [])));
 </script>
 
-<button type="button" class="card" class:selected aria-pressed={selected} onclick={onselect}>
+<button type="button" class="card" class:selected aria-pressed={selected} {disabled} {title} onclick={onselect}>
   <span class="name">{layout.name}</span>
   <svg viewBox="0 0 {WIDTH} {HEIGHT}" aria-hidden="true">
     {#each wires as { key, d, colour } (key)}<path class="wire" {d} style:stroke={colour} />{/each}

@@ -153,7 +153,7 @@
     </p>
   {:else}
     <p class="dim">Off: the output delays are left as they are.</p>
-    {#if tuning.interrupted}<TuningPanel {recipe} {valid} />{/if}
+    {#if tuning.running || tuning.interrupted}<TuningPanel {recipe} {valid} />{/if}
   {/if}
 </Section>
 
