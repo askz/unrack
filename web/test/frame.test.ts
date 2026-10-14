@@ -43,6 +43,18 @@ test("gain dB<->raw calibration (0dB=280, +12dB=400, 10 units/dB)", () => {
   assert.equal(gainRawToDb(290), 1);
 });
 
+test("gain below -20 dB follows the firmware's 0.5 dB/step segment (sub_6880/sub_6830)", () => {
+  assert.equal(gainDbToRaw(-20), 80);   // segment boundary, both formulas agree
+  assert.equal(gainDbToRaw(-30), 60);
+  assert.equal(gainDbToRaw(-40), 40);
+  assert.equal(gainDbToRaw(-60), 0);    // raw 0: the device forces a hard mute
+  assert.equal(gainRawToDb(80), -20);
+  assert.equal(gainRawToDb(79), -20.5);
+  assert.equal(gainRawToDb(60), -30);
+  assert.equal(gainRawToDb(0), -60);
+  for (let raw = 0; raw <= 400; raw++) assert.equal(gainDbToRaw(gainRawToDb(raw)), raw);
+});
+
 test("level frame carries chan + 16-bit LE value", () => {
   const f = levelRawFrame(Channel.OUT_1, 0x0118);
   // 10 02 00 01 04 34 04 18 01 10 03 cksum

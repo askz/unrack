@@ -37,7 +37,7 @@ const MOCK_LEVEL_INTERVAL_MS = 100;
 function mockProvider(): LinkProvider {
   const device = new MockDsp({ latencyMs: MOCK_LATENCY_MS });
   setInterval(() => {
-    device.levels = device.levels.map((_, i) => Math.round(30 + 25 * Math.abs(Math.sin(Date.now() / (700 + 90 * i)))));
+    device.levels = device.levels.map((_, i) => -60 + 54 * Math.abs(Math.sin(Date.now() / (700 + 90 * i))));
   }, MOCK_LEVEL_INTERVAL_MS);
   return {
     supported: () => true,

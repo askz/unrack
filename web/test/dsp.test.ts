@@ -68,10 +68,11 @@ test("preset slots outside 0..29 are refused before reaching the device", async 
 
 test("levels decodes the 8 meters from a background poll", async () => {
   const { device, dsp } = await connect();
-  device.levels = [30, 51, 72, 0, 30, 30, 30, 72];
+  device.levels = [-90, -36, 0, -72, -75, -75, -75, 0]; // dBFS
   const levels = await dsp.levels();
   assert.equal(levels?.length, 8);
   assert.equal(levels?.[0], 0);
-  assert.ok(Math.abs(levels![1]! - 0.5) < 1e-9);
-  assert.equal(levels?.[7], 1);
+  assert.ok(Math.abs(levels![1]! - 0.5) < 1e-4);
+  assert.ok(Math.abs(levels![2]! - 1) < 1e-4);
+  assert.ok(Math.abs(levels![7]! - 1) < 1e-4);
 });

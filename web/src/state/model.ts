@@ -72,8 +72,8 @@ export function defaultChannel(index: number): Channel {
     gainDb: 0, mute: false, polarity: false,
     eq: isOutput ? defaultEq() : undefined,
     delayMs: isOutput ? 0 : undefined,
-    comp: isOutput ? { thresholdDb: 20, ratioIndex: 0, kneeDb: 0, attackMs: 49, releaseMs: 499 } : undefined,
-    gate: isOutput ? undefined : { thresholdDb: -90, attackMs: 49, holdMs: 99, releaseMs: 499 },
+    comp: isOutput ? { thresholdDb: 20, ratioIndex: 0, kneeDb: 0, attackMs: 50, releaseMs: 500 } : undefined,
+    gate: isOutput ? undefined : { thresholdDb: -90, attackMs: 50, holdMs: 100, releaseMs: 500 },
   };
 }
 

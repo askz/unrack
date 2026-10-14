@@ -4,7 +4,7 @@
 import type { Calibration } from "../eq/calibration.ts";
 import type { PresetReadback } from "../protocol/readback.ts";
 import { gainRawToDb } from "../protocol/control.ts";
-import { peqIndexToHz, rawToQ, samplesToMs, thresholdRawToDb } from "../protocol/blocks.ts";
+import { peqIndexToHz, rawToQ, samplesToMs, thresholdRawToDb, timeRawToMs } from "../protocol/blocks.ts";
 import { OUT_BASE, defaultModel, type DeviceModel } from "./model.ts";
 
 export function modelFromReadback(image: PresetReadback, cal: Calibration, previous?: DeviceModel): DeviceModel {
@@ -18,8 +18,8 @@ export function modelFromReadback(image: PresetReadback, cal: Calibration, previ
     ch.polarity = record.polarity;
     ch.mute = previous?.channels[i]?.mute ?? null;
     ch.gate = {
-      attackMs: record.gate.atkRaw, releaseMs: record.gate.relRaw, holdMs: record.gate.holdRaw,
-      thresholdDb: thresholdRawToDb(record.gate.thrRaw),
+      attackMs: timeRawToMs(record.gate.atkRaw), releaseMs: timeRawToMs(record.gate.relRaw),
+      holdMs: timeRawToMs(record.gate.holdRaw), thresholdDb: thresholdRawToDb(record.gate.thrRaw),
     };
   });
 
@@ -34,7 +34,8 @@ export function modelFromReadback(image: PresetReadback, cal: Calibration, previ
     model.routing[i] = record.routingMask;
     ch.comp = {
       ratioIndex: record.comp.ratioIndex, kneeDb: record.comp.kneeRaw,
-      attackMs: record.comp.atkRaw, releaseMs: record.comp.relRaw, thresholdDb: thresholdRawToDb(record.comp.thrRaw),
+      attackMs: timeRawToMs(record.comp.atkRaw), releaseMs: timeRawToMs(record.comp.relRaw),
+      thresholdDb: thresholdRawToDb(record.comp.thrRaw),
     };
     ch.eq = {
       hpf: { freqHz: cal.xoverRawToHz(record.hpfRaw), slope: record.hpfSlope },

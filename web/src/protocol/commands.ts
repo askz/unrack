@@ -22,7 +22,7 @@ export const Command = {
   CROSSOVER_LPF: 0x31, // [chan, freq16, slope]
   CROSSOVER_HPF: 0x32, // [chan, freq16, slope]
   PEQ_BAND: 0x33,      // [chan, band, gain16, freq16, q8, type8, bypass8]
-  LEVEL: 0x34,         // [chan, val16] raw 0..400; 0dB=280, +12dB=400, 10 units/dB
+  LEVEL: 0x34,         // [chan, val16] raw 0..400; two-segment dB curve, see control.ts gainDbToRaw
   MUTE: 0x35,          // [chan, on(1)/off(0)]
   POLARITY: 0x36,      // [chan, invert(1)/normal(0)]
   DELAY: 0x38,         // [chan, samples16] @48kHz (ms = samples/48; max 32640 = 680ms)

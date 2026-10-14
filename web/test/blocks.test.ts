@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   compressorFrame, gateFrame, crossoverHpfFrame, crossoverLpfFrame,
   delayMsFrame, routingFrame, peqBandFrame,
-  thresholdDbToRaw, thresholdRawToDb, msToSamples, hzToPeqIndex, peqIndexToHz, qToRaw,
+  thresholdDbToRaw, thresholdRawToDb, msToSamples, hzToPeqIndex, peqIndexToHz, qToRaw, rawToQ,
 } from "../src/protocol/blocks.ts";
 import { Slope, PeqType, Command } from "../src/protocol/commands.ts";
 
@@ -17,13 +17,13 @@ const codeOf = (f: Uint8Array) => f[5];
 // ---- golden vectors: real frames captured from the editor ----
 
 test("GOLDEN compressor default frame (04 00 00 31 00 f3 01 db 00)", () => {
-  const f = compressorFrame(0x04, { ratioIndex: 0, kneeDb: 0, attackMs: 49, releaseMs: 499, thresholdDb: 19.5 });
+  const f = compressorFrame(0x04, { ratioIndex: 0, kneeDb: 0, attackMs: 50, releaseMs: 500, thresholdDb: 19.5 });
   assert.equal(codeOf(f), Command.COMPRESSOR);
   assert.equal(dataOf(f), "04 00 00 31 00 f3 01 db 00");
 });
 
 test("GOLDEN gate default frame (00 31 00 f3 01 63 00 01 00)", () => {
-  const f = gateFrame(0x00, { attackMs: 49, releaseMs: 499, holdMs: 99, thresholdDb: -89.5 });
+  const f = gateFrame(0x00, { attackMs: 50, releaseMs: 500, holdMs: 100, thresholdDb: -89.5 });
   assert.equal(codeOf(f), Command.GATE);
   assert.equal(dataOf(f), "00 31 00 f3 01 63 00 01 00");
 });
@@ -44,7 +44,8 @@ test("GOLDEN routing Out1 all inputs (04 0f)", () => {
 test("GOLDEN PEQ band default (04 00 78 00 46 00 0a 04 00)", () => {
   // layout [gain16, freq16, q8, type8, bypass8]: gain raw 120 (=0 dB), freq index 70
   // (≈99 Hz @ 30/oct), q8 10, type High-Pass — capture-verified field order.
-  const f = peqBandFrame(0x04, 0, { gainRaw: 120, freqHz: peqIndexToHz(70), q: 1.0, type: PeqType.HIGH_PASS });
+  // q8 10 is the firmware's exponential Q 0.71 (Butterworth HPF), see docs/FIRMWARE.md.
+  const f = peqBandFrame(0x04, 0, { gainRaw: 120, freqHz: peqIndexToHz(70), q: 0.707, type: PeqType.HIGH_PASS });
   assert.equal(dataOf(f), "04 00 78 00 46 00 0a 04 00");
 });
 
@@ -68,7 +69,11 @@ test("PEQ freq index <-> Hz (30 steps/oct, 19.7Hz base — same scale as crossov
   assert.equal(hzToPeqIndex(40.3), 31); // editor 40.3 Hz = index 31 (the calibration anchor)
 });
 
-test("PEQ Q -> q8 (provisional ×10)", () => {
-  assert.equal(qToRaw(1.0), 10);
-  assert.equal(qToRaw(2.5), 25);
+test("PEQ Q <-> q8 (firmware exponential: Q = 128 / 1.0594^(100-raw))", () => {
+  assert.equal(qToRaw(0.707), 10); // Butterworth, matches the High-Pass golden capture
+  assert.equal(qToRaw(1.0), 16);
+  assert.equal(qToRaw(2.0), 28);
+  assert.equal(qToRaw(128), 100);  // top of the range
+  assert.ok(Math.abs(rawToQ(16) - 1.0) < 0.01);
+  assert.ok(Math.abs(rawToQ(qToRaw(5)) - 5) < 0.1); // round-trips
 });

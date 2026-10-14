@@ -19,21 +19,31 @@ export function levelRawFrame(chan: number, raw16: number): Uint8Array {
   return buildRequest(Command.LEVEL, Uint8Array.of(chan & 0xff, v & 0xff, (v >> 8) & 0xff));
 }
 
-// Gain mapping: 0 dB = raw 280 (the factory-default value of every channel),
-// +12 dB = raw 400, 10 raw units per dB. Linear-in-dB through the normal range; the
-// device floors at raw 0 (shown as the −60 dB minimum), so deep-negative dB is approximate.
+// Gain mapping, two segments (firmware converters sub_6880 inputs / sub_6830 outputs,
+// see docs/FIRMWARE.md):
+//   raw >= 80: dB = (raw - 280) / 10   (0.1 dB/step; 0 dB = 280 factory default, +12 dB = 400)
+//   raw <  80: dB = raw / 2 - 60       (0.5 dB/step; -20 dB at raw 80)
+// Raw 0 (-60 dB) is a hard mute on the device.
 const GAIN_ZERO_DB = 280;
 const GAIN_UNITS_PER_DB = 10;
-export const GAIN_MAX_RAW = 400; // ≈ +12 dB
+const GAIN_KNEE_RAW = 80; // -20 dB
+const GAIN_LOW_UNITS_PER_DB = 2;
+const GAIN_MIN_DB = -60;
+export const GAIN_MAX_RAW = 400; // +12 dB
 
 export function gainDbToRaw(db: number): number {
-  return Math.max(0, Math.min(GAIN_MAX_RAW, Math.round(GAIN_ZERO_DB + db * GAIN_UNITS_PER_DB)));
+  const raw = db >= gainRawToDb(GAIN_KNEE_RAW)
+    ? GAIN_ZERO_DB + db * GAIN_UNITS_PER_DB
+    : (db - GAIN_MIN_DB) * GAIN_LOW_UNITS_PER_DB;
+  return Math.max(0, Math.min(GAIN_MAX_RAW, Math.round(raw)));
 }
 export function gainRawToDb(raw: number): number {
-  return (raw - GAIN_ZERO_DB) / GAIN_UNITS_PER_DB;
+  return raw >= GAIN_KNEE_RAW
+    ? (raw - GAIN_ZERO_DB) / GAIN_UNITS_PER_DB
+    : raw / GAIN_LOW_UNITS_PER_DB + GAIN_MIN_DB;
 }
 
-/** Set a channel level in dB (uses the calibrated near-0 linear mapping). */
+/** Set a channel level in dB. */
 export function levelDbFrame(chan: number, db: number): Uint8Array {
   return levelRawFrame(chan, gainDbToRaw(db));
 }

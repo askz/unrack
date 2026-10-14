@@ -1,24 +1,30 @@
 // Decoders for the device's readback replies (decoded from observed traffic):
-//  - 0x40 level poll: 8 channel meters at data offsets 2,5,8,…,23 (stride 3).
+//  - 0x40 level poll: 8 channel meters, 3 bytes each (a packed 32-bit linear level word).
 //  - 0x27/0x24 channel-state: nine 50-byte pages reconstruct the 450-byte preset
 //    image (preset name @+2; input records 24B @16/40/64/88; output records 74B
 //    @112/186/260/334). Gain: input @+18, output @+66 (16-bit, level-raw scale).
 import type { Reply } from "./frame.ts";
 
-// The 0x40 meter byte is a dB-style reading, not linear amplitude: on real
-// hardware an idle channel sits well above zero (~5 inputs, ~30 outputs of 72),
-// so displaying raw/72 leaves the noise floor lit and the scale feels flat. Gate
-// a floor and rescale [FLOOR..TOP] → [0..1] (linear-in-dB, i.e. a normal dB bar).
-const METER_FLOOR = 30; // raw counts at/below the observed idle floor read as silence
-const METER_TOP = 72; // raw counts at/above this read as full scale
+// The 0x40 reply carries one 32-bit linear DSP level word per channel, read from the DSP by
+// the firmware (loop at 0x13d8) and packed by the 0x40 handler (0x5fce) as
+// [bits23..16, bits31..24, bits15..8]; bits 7..0 are dropped. Full scale is 2^24 (8.24
+// fixed-point, as the coefficients). Idle hardware sits near -87 dBFS (inputs) and
+// -75 dBFS (outputs), so the meter spans [-72..0] dBFS.
+const LEVEL_FULL_SCALE = 2 ** 24;
+const METER_FLOOR_DB = -72;
 
-/** 8 channel levels (0..1) from a 0x40 reply. Order: In A–D, Out 1–4. */
-export function levelsFromReply(r: Reply): number[] | null {
+const levelWord = (data: Uint8Array, channel: number) =>
+  (((data[3 * channel + 1] ?? 0) << 24) | ((data[3 * channel] ?? 0) << 16) | ((data[3 * channel + 2] ?? 0) << 8)) >>> 0;
+
+/** 8 channel levels in dBFS (-Infinity when silent) from a 0x40 reply. Order: In A–D, Out 1–4. */
+export function levelsDbFromReply(r: Reply): number[] | null {
   if (r.code !== 0x40 || r.data.length < 24) return null;
-  return Array.from({ length: 8 }, (_, i) => {
-    const raw = r.data[2 + 3 * i] ?? 0;
-    return Math.max(0, Math.min(1, (raw - METER_FLOOR) / (METER_TOP - METER_FLOOR)));
-  });
+  return Array.from({ length: 8 }, (_, i) => 20 * Math.log10(levelWord(r.data, i) / LEVEL_FULL_SCALE));
+}
+
+/** 8 channel levels (0..1, linear in dB over [-72..0] dBFS) from a 0x40 reply. */
+export function levelsFromReply(r: Reply): number[] | null {
+  return levelsDbFromReply(r)?.map((db) => Math.max(0, Math.min(1, 1 - db / METER_FLOOR_DB))) ?? null;
 }
 
 // Record field offsets — all probe-verified against known written values (set

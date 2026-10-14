@@ -25,7 +25,8 @@ export class MockDsp implements HidLink {
   pages: Uint8Array[] = defaultPresetPages();
   presetNames: string[] = Array.from({ length: PRESET_SLOT_COUNT }, () => "Default Preset");
   activePreset = 0;
-  levels: number[] = [0, 0, 0, 0, 30, 30, 30, 30];
+  /** Meter levels in dBFS, In A–D then Out 1–4 (hardware idle floor: ~-87 in, ~-75 out). */
+  levels: number[] = [-87, -87, -87, -87, -75, -75, -75, -75];
   /** Silently drop this many upcoming frames (lost transactions). */
   dropNext = 0;
   /** Stop answering entirely. */
@@ -129,7 +130,12 @@ export class MockDsp implements HidLink {
       }
       case Command.READBACK_LEVELS: {
         const levelData = new Array(27).fill(0);
-        this.levels.forEach((level, i) => { levelData[2 + 3 * i] = level; });
+        this.levels.forEach((db, i) => {
+          const word = Math.min(0xffffffff, Math.round(2 ** 24 * Math.pow(10, db / 20)));
+          levelData[3 * i] = (word >>> 16) & 0xff;
+          levelData[3 * i + 1] = (word >>> 24) & 0xff;
+          levelData[3 * i + 2] = (word >>> 8) & 0xff;
+        });
         return { code, data: levelData };
       }
       case Command.RECALL_PRESET:

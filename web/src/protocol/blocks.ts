@@ -16,15 +16,28 @@ export const thresholdRawToDb = (raw: number) => raw / 2 - 90;
 export const msToSamples = (ms: number) => Math.max(0, Math.min(32640, Math.round(ms * 48)));
 export const samplesToMs = (s: number) => s / 48;
 
+/** Compressor/gate attack/release/hold: device raw, ms = raw + 1 (firmware-confirmed,
+ * converter at 0x2c34; see docs/FIRMWARE.md). */
+export const timeMsToRaw = (ms: number) => Math.max(0, Math.round(ms) - 1);
+export const timeRawToMs = (raw: number) => raw + 1;
+
 /** PEQ frequency: log index 0..300, 30 steps/octave (0 = 19.7 Hz, 300 = 20.16 kHz) — same
  * scale as the crossover. Capture-verified: editor 40.3 Hz = index 31 = 19.7·2^(31/30). */
 export const hzToPeqIndex = (hz: number) =>
   Math.max(0, Math.min(300, Math.round(30 * Math.log2(hz / 19.7))));
 export const peqIndexToHz = (i: number) => 19.7 * Math.pow(2, i / 30);
 
-/** PEQ Q: single byte (q8). Scale provisional (default q8=25, not yet swept against the editor). */
-export const qToRaw = (q: number) => Math.max(0, Math.min(255, Math.round(q * 10)));
-export const rawToQ = (raw: number) => raw / 10;
+/**
+ * PEQ Q: single byte (q8), exponential. The firmware (4x4MINIPRO image, biquad builder at
+ * 0x3264) computes 1/Q = 1.0594^(100 - raw) / 128, i.e. Q = 128 / 1.0594^(100 - raw). So
+ * raw 16 = Q 1.0, raw 100 = Q 128, and every +12 counts doubles Q. The constant 1.0594 is the
+ * firmware's stored value for 2^(1/12). raw is clamped to 0..100 (Q ≈ 0.40..128).
+ * Confirmed by the High-Pass golden capture (q8 10 = Q 0.71, i.e. Butterworth). See docs/FIRMWARE.md.
+ */
+const Q_BASE = 1.0594;
+export const qToRaw = (q: number) =>
+  Math.max(0, Math.min(100, Math.round(100 - Math.log(128 / q) / Math.log(Q_BASE))));
+export const rawToQ = (raw: number) => 128 / Math.pow(Q_BASE, 100 - raw);
 
 // ---- block builders (return 64-byte request frames) ----
 
@@ -35,7 +48,7 @@ export function compressorFrame(
 ): Uint8Array {
   return buildRequest(Command.COMPRESSOR, Uint8Array.of(
     chan & 0xff, o.ratioIndex & 0xff, o.kneeDb & 0xff,
-    ...le16(o.attackMs), ...le16(o.releaseMs), ...le16(thresholdDbToRaw(o.thresholdDb)),
+    ...le16(timeMsToRaw(o.attackMs)), ...le16(timeMsToRaw(o.releaseMs)), ...le16(thresholdDbToRaw(o.thresholdDb)),
   ));
 }
 
@@ -46,7 +59,8 @@ export function gateFrame(
 ): Uint8Array {
   return buildRequest(Command.GATE, Uint8Array.of(
     chan & 0xff,
-    ...le16(o.attackMs), ...le16(o.releaseMs), ...le16(o.holdMs), ...le16(thresholdDbToRaw(o.thresholdDb)),
+    ...le16(timeMsToRaw(o.attackMs)), ...le16(timeMsToRaw(o.releaseMs)), ...le16(timeMsToRaw(o.holdMs)),
+    ...le16(thresholdDbToRaw(o.thresholdDb)),
   ));
 }
 
