@@ -6,12 +6,12 @@
 
   let { ch }: { ch: number } = $props();
   const routedTo = $derived(
-    device.routing.flatMap((mask, out) => ((mask & (1 << ch)) !== 0 ? [device.ch(4 + out).name] : [])),
+    device.routing.flatMap((mask, out) => ((mask & (1 << ch)) !== 0 ? [device.displayName(4 + out)] : [])),
   );
 </script>
 
 <div class="view">
-  <Section title="{device.ch(ch).name} · Input">
+  <Section title="{device.displayName(ch)} · Input">
     <ChannelControls {ch} />
     <p class="routed dim">Feeds: {routedTo.length ? routedTo.join(", ") : "no output"}</p>
   </Section>

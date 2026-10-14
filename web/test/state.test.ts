@@ -129,6 +129,19 @@ test("set applies, sends and clears the sync entry once acked", async () => {
   assert.equal(state.undoLabel, "Out 1 gain");
 });
 
+test("labels use the channel names given by channelName", () => {
+  const state: EditorState = createEditorState(defaultModel());
+  const names: Record<number, string> = { [OUT1]: "Top L", [OUT1 + 1]: "Top R" };
+  const editor = new Editor(state, { dsp: () => null, cal, onError: () => {}, channelName: (ch) => names[ch] ?? "" });
+  void editor.set({ kind: "gain", ch: OUT1 }, -6);
+  assert.equal(state.undoLabel, "Top L gain");
+  void editor.set({ kind: "hpf", ch: OUT1 }, { freqHz: 100, slope: 8 });
+  void editor.copyEq(OUT1, OUT1 + 1);
+  assert.equal(state.undoLabel, "Copy EQ Top L → Top R");
+  void editor.set({ kind: "gain", ch: OUT1 + 2 }, -6);
+  assert.equal(state.undoLabel, "Out 3 gain", "an empty name falls back to the fixed label");
+});
+
 test("an unchanged value is neither sent nor recorded", async () => {
   const { device, state, editor } = await editorWithDevice();
   await editor.set({ kind: "gain", ch: OUT1 }, 0);

@@ -34,25 +34,27 @@
     <div class="strips">
       {#each channels as ch (ch)}
         {@const channel = device.ch(ch)}
+        {@const name = device.displayName(ch)}
         {@const gainStatus = device.syncOf({ kind: "gain", ch })}
+        {@const warn = device.aboveCeiling(ch)}
         <div class="strip" class:output-start={ch === OUT_BASE} style="--marker: var(--ch-{ch})">
-          <button class="name ghost" title="Open {channel.name}" onclick={() => ui.open(ch)}>{channel.name}</button>
+          <button class="name ghost" title="Open {name}" onclick={() => ui.open(ch)}>{name}</button>
           <div class="mix">
-            <Fader value={channel.gainDb} orientation="vertical" ticks step={gainStep} label="{channel.name} gain"
-                   status={gainStatus} onchange={(db) => device.setGainDb(ch, db)} onend={() => device.seal()} />
+            <Fader value={channel.gainDb} orientation="vertical" ticks step={gainStep} label="{name} gain"
+                   status={gainStatus} {warn} onchange={(db) => device.setGainDb(ch, db)} onend={() => device.seal()} />
             <Meter level={device.meters[ch] ?? 0} />
           </div>
           <NumberField value={channel.gainDb} min={GAIN_RANGE.min} max={GAIN_RANGE.max} step={gainStep} stepper={stepGainDb}
-                       format={(v) => formatDb(v)} unit="dB" width="100%" status={gainStatus}
-                       ariaLabel="{channel.name} gain value"
+                       format={(v) => formatDb(v)} unit="dB" width="100%" status={gainStatus} {warn}
+                       ariaLabel="{name} gain value"
                        onchange={(db) => device.setGainDb(ch, db)} onend={() => device.seal()} />
           <div class="toggles">
-            <Toggle pressed={channel.mute} tone="bad" title="Mute {channel.name}" status={device.syncOf({ kind: "mute", ch })}
+            <Toggle pressed={channel.mute} tone="bad" title="Mute {name}" status={device.syncOf({ kind: "mute", ch })}
                     onchange={(on) => device.setMute(ch, on)}>M</Toggle>
-            <Toggle pressed={channel.polarity} tone="warn" title="Invert polarity of {channel.name}" status={device.syncOf({ kind: "polarity", ch })}
+            <Toggle pressed={channel.polarity} tone="warn" title="Invert polarity of {name}" status={device.syncOf({ kind: "polarity", ch })}
                     onchange={(invert) => device.setPolarity(ch, invert)}>Ø</Toggle>
             {#if channel.isOutput}
-              <Toggle pressed={device.soloed.includes(ch)} title="Solo {channel.name} (mutes the other outputs)"
+              <Toggle pressed={device.soloed.includes(ch)} title="Solo {name} (mutes the other outputs)"
                       onchange={() => device.toggleSolo(ch)}>S</Toggle>
             {/if}
           </div>
@@ -68,7 +70,7 @@
       <thead>
         <tr>
           <th></th>
-          {#each INPUT_LETTERS as letter, input (letter)}<th scope="col" title={device.ch(input).name}>In {letter}</th>{/each}
+          {#each INPUT_LETTERS as letter, input (letter)}<th scope="col" title={device.displayName(input)}>In {letter}</th>{/each}
         </tr>
       </thead>
       <tbody>
@@ -76,11 +78,11 @@
           {@const mask = device.routing[out - OUT_BASE] ?? 0}
           {@const status = device.syncOf({ kind: "routing", ch: out })}
           <tr>
-            <th scope="row"><button class="ghost" onclick={() => ui.open(out)}>{device.ch(out).name}</button></th>
+            <th scope="row"><button class="ghost" onclick={() => ui.open(out)}>{device.displayName(out)}</button></th>
             {#each INPUT_LETTERS as letter, input (letter)}
               <td>
                 <Toggle pressed={(mask & (1 << input)) !== 0} {status}
-                        title="{device.ch(input).name} → {device.ch(out).name}"
+                        title="{device.displayName(input)} → {device.displayName(out)}"
                         onchange={() => { device.setRouting(out, mask ^ (1 << input)); device.seal(); }}>{letter}</Toggle>
               </td>
             {/each}

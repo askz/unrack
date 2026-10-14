@@ -27,12 +27,16 @@
     ariaLabel?: string;
     status?: SyncEntry;
     disabled?: boolean;
+    /** The value is above a user limit (shown in the warning colour). */
+    warn?: boolean;
+    /** A problem with the value, shown under the field. */
+    error?: string;
     width?: string;
   }
 
   let {
     value, onchange, onend, min, max, step, log = false, stepper, format, unit = "", label = "", ariaLabel,
-    status, disabled = false, width = "88px",
+    status, disabled = false, warn = false, error, width = "88px",
   }: Props = $props();
 
   const DRAG_PIXELS_PER_STEP = 4;
@@ -142,7 +146,7 @@
   }
 </script>
 
-<label class="field" class:disabled style:width={width} {title}
+<label class="field" class:disabled class:warn class:invalid={!!error} style:width={width} title={error ?? title}
        data-status={status?.status}>
   {#if label}<span class="label">{label}</span>{/if}
   <span class="box">
@@ -167,6 +171,7 @@
     />
     {#if unit}<span class="unit">{unit}</span>{/if}
   </span>
+  {#if error}<span class="error">{error}</span>{/if}
 </label>
 
 <style>
@@ -186,6 +191,10 @@
   }
   input:focus { cursor: text; }
   .unit { padding: 0 5px 0 2px; font-size: 11px; color: var(--text-faint); }
+  .warn input { color: var(--warn); }
+  .warn .box { border-color: var(--warn); }
+  .invalid .box { border-color: var(--bad); }
+  .error { font-size: 11px; line-height: 1.25; color: var(--bad); white-space: normal; }
   .disabled { opacity: .5; }
   .disabled input { cursor: default; }
 </style>

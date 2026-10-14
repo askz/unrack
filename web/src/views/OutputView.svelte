@@ -26,7 +26,7 @@
 </script>
 
 <div class="view">
-  <Section title="{channel.name} · Output">
+  <Section title="{device.displayName(ch)} · Output">
     <div class="stack">
       <ChannelControls {ch} />
       <OutputSignal {ch} />
@@ -40,14 +40,14 @@
         <select value={linkedTo === undefined ? "" : String(linkedTo)} onchange={(event) => onLinkChange(event.currentTarget.value)}
                 title="Linked outputs mirror every EQ edit">
           <option value="">Not linked</option>
-          {#each others as other (other)}<option value={String(other)}>{device.ch(other).name}</option>{/each}
+          {#each others as other (other)}<option value={String(other)}>{device.displayName(other)}</option>{/each}
         </select>
       </label>
       <label class="inline">
         <span class="label">Copy to</span>
         <select value="" onchange={(event) => onCopy(event.currentTarget)} title="Copy this EQ (crossovers and bands) to another output">
           <option value="">Choose…</option>
-          {#each others as other (other)}<option value={String(other)}>{device.ch(other).name}</option>{/each}
+          {#each others as other (other)}<option value={String(other)}>{device.displayName(other)}</option>{/each}
         </select>
       </label>
     {/snippet}

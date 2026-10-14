@@ -10,7 +10,7 @@
   function title(view: View): string {
     if (view === "overview") return "Overview";
     if (view === "system") return "System";
-    return device.ch(view).name;
+    return device.displayName(view);
   }
 
   /** Channels with parameters the device did not accept (failed) or never received (offline). */

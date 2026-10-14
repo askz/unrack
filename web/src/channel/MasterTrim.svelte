@@ -18,6 +18,8 @@
 
   /** Output gains when the current gesture started; null between gestures. */
   let base: number[] | null = null;
+  /** Highest gain per output for this gesture (the ceiling, or the gain if it was already above). */
+  let limits: number[] = [];
   let offset = $state(0);
   let clamped = $state(false);
   let area: HTMLDivElement;
@@ -30,10 +32,11 @@
   function apply(nextOffset: number): void {
     if (base === null) {
       base = OUTPUTS.map((ch) => device.ch(ch).gainDb);
+      limits = OUTPUTS.map((ch) => device.gainLimit(ch));
       clamped = false;
     }
     offset = round(nextOffset);
-    const result = trimmedGains(base, offset);
+    const result = trimmedGains(base, offset, limits);
     clamped = clamped || result.clamped;
     device.trimOutputs(result.gains);
   }

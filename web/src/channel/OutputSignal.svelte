@@ -21,7 +21,7 @@
     <span class="label">Sources</span>
     <div class="sources">
       {#each INPUT_LETTERS as letter, input (letter)}
-        <Toggle pressed={(mask & (1 << input)) !== 0} title="Feed from {device.ch(input).name}" status={routingStatus}
+        <Toggle pressed={(mask & (1 << input)) !== 0} title="Feed from {device.displayName(input)}" status={routingStatus}
                 onchange={() => { device.setRouting(ch, mask ^ (1 << input)); device.seal(); }}>{letter}</Toggle>
       {/each}
     </div>

@@ -12,6 +12,8 @@
 
   let { ch }: { ch: number } = $props();
   const channel = $derived(device.ch(ch));
+  const name = $derived(device.displayName(ch));
+  const warn = $derived(device.aboveCeiling(ch));
   const gainStatus = $derived(device.syncOf({ kind: "gain", ch }));
   const gainStep = $derived(settings.value.gainStepDb);
 </script>
@@ -20,17 +22,17 @@
   <div class="gain">
     <span class="label">Gain</span>
     <div class="fader">
-      <Fader value={channel.gainDb} step={gainStep} label="{channel.name} gain" status={gainStatus}
+      <Fader value={channel.gainDb} step={gainStep} label="{name} gain" status={gainStatus} {warn}
              onchange={(db) => device.setGainDb(ch, db)} onend={() => device.seal()} />
     </div>
     <NumberField value={channel.gainDb} min={GAIN_RANGE.min} max={GAIN_RANGE.max} step={gainStep} stepper={stepGainDb}
-                 format={(v) => formatDb(v)} unit="dB" status={gainStatus} ariaLabel="{channel.name} gain value"
+                 format={(v) => formatDb(v)} unit="dB" status={gainStatus} {warn} ariaLabel="{name} gain value"
                  onchange={(db) => device.setGainDb(ch, db)} onend={() => device.seal()} />
   </div>
   <div class="toggles">
-    <Toggle pressed={channel.mute} tone="bad" title="Mute {channel.name}" status={device.syncOf({ kind: "mute", ch })}
+    <Toggle pressed={channel.mute} tone="bad" title="Mute {name}" status={device.syncOf({ kind: "mute", ch })}
             onchange={(on) => device.setMute(ch, on)}>Mute</Toggle>
-    <Toggle pressed={channel.polarity} tone="warn" title="Invert polarity of {channel.name}" status={device.syncOf({ kind: "polarity", ch })}
+    <Toggle pressed={channel.polarity} tone="warn" title="Invert polarity of {name}" status={device.syncOf({ kind: "polarity", ch })}
             onchange={(invert) => device.setPolarity(ch, invert)}>Ø</Toggle>
   </div>
   <div class="meter" title="Level">

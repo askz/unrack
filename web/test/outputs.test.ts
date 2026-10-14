@@ -31,3 +31,8 @@ test("trim clamps at the ends of the range and at a ceiling, and says so", () =>
   assert.deepEqual(trimmedGains([0, -59], -3), { gains: [-3, -60], clamped: true });
   assert.deepEqual(trimmedGains([0, 2], 3, 3), { gains: [3, 3], clamped: true });
 });
+
+test("trim can take one limit per output", () => {
+  assert.deepEqual(trimmedGains([0, 5], 2, [1, 5]), { gains: [1, 5], clamped: true });
+  assert.deepEqual(trimmedGains([0, 5], -2, [1, 5]), { gains: [-2, 3], clamped: false });
+});

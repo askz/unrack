@@ -4,10 +4,13 @@
 import { Connection, type ConnectionPhase, type SyncReason } from "./connection.ts";
 import { Editor, createEditorState, type EditorState, type SyncEntry } from "./editor.ts";
 import { modelFromReadback } from "./hydrate.ts";
-import { paramKey, describeParam, type ParamAssignment, type ParamRef, type ParamValue } from "./params.ts";
+import { GAIN_RANGE, paramKey, describeParam, type ParamAssignment, type ParamRef, type ParamValue } from "./params.ts";
 import { parsePresetFile, presetFileName, serializePresetFile, PresetFileError } from "./presetFile.ts";
 import { CHANNEL_COUNT, DEFAULT_BAND_FREQS, OUT_BASE, defaultBand, defaultModel, type Channel, type Compressor, type Gate } from "./model.ts";
 import { muteAllAssignments, outputMutes, restoreAssignments, soloAssignments, type MuteSnapshot } from "./solo.ts";
+import { settings } from "./settings.svelte.ts";
+import { buildSetup, type SetupResult } from "../setup/build.ts";
+import { LAYOUTS, type Recipe } from "../setup/recipe.ts";
 import { platformLinkProvider } from "../transport/platform.ts";
 import { ProtocolError, emptyStats, type ChannelStats } from "../transport/channel.ts";
 import type { Dsp, DeviceInfo } from "../dsp.ts";
@@ -61,6 +64,7 @@ export class DeviceStore {
       dsp: () => this.connection.dsp,
       cal: this.cal,
       onError: (label, error) => this.report(label, error),
+      channelName: (ch) => this.displayName(ch),
     });
     this.connection = new Connection(platformLinkProvider(), {
       sync: (dsp, reason) => this.hydrate(dsp, reason),
@@ -101,6 +105,21 @@ export class DeviceStore {
   }
   get allOutputsMuted(): boolean { return outputMutes(this.edit.model).every((mute) => mute === true); }
   ch(index: number): Channel { return this.edit.model.channels[index]!; }
+  /** The name chosen in the settings, else the device's own name. */
+  displayName(index: number): string { return settings.value.names[index] || this.ch(index).name; }
+  /** Highest output gain the UI may set; null = no limit. */
+  get gainCeiling(): number | null { return settings.value.gainCeilingDb; }
+  /** An output whose gain is above the ceiling (set before the ceiling, or by a recall / import). */
+  aboveCeiling(index: number): boolean {
+    const ceiling = this.gainCeiling;
+    return index >= OUT_BASE && ceiling !== null && this.ch(index).gainDb > ceiling + 1e-9;
+  }
+  /** Highest gain an edit may set on a channel: never above the ceiling, unless it already is (it may only go down). */
+  gainLimit(index: number): number {
+    const ceiling = this.gainCeiling;
+    if (index < OUT_BASE || ceiling === null) return GAIN_RANGE.max;
+    return Math.max(ceiling, this.ch(index).gainDb);
+  }
   syncOf(ref: ParamRef): SyncEntry | undefined { return this.edit.sync[paramKey(ref)]; }
   collapse(): void { this.selected = -1; }
 
@@ -113,7 +132,7 @@ export class DeviceStore {
 
   // --- edits (all go through the Editor) ---
 
-  setGainDb(ch: number, db: number): void { this.change({ kind: "gain", ch }, db); }
+  setGainDb(ch: number, db: number): void { this.change({ kind: "gain", ch }, Math.min(db, this.gainLimit(ch))); }
   setMute(ch: number, on: boolean): void {
     this.muteAllSnapshot = null;
     this.change({ kind: "mute", ch }, on);
@@ -195,8 +214,21 @@ export class DeviceStore {
       return;
     }
     this.soloed = [...next].sort((a, b) => a - b);
-    const name = this.ch(ch).name;
+    const name = this.displayName(ch);
     this.applyGroup(adding ? `Solo ${name}` : `Unsolo ${name}`, soloAssignments(next));
+  }
+
+  /**
+   * Apply a valid setup recipe as one undo step ("Setup: 2.1"), then name the outputs
+   * after their roles. Returns what was built (the spare outputs, to offer hiding them).
+   */
+  applySetup(recipe: Recipe): SetupResult {
+    const result = buildSetup(recipe, { gainCeilingDb: this.gainCeiling });
+    this.applyGroup(`Setup: ${LAYOUTS[recipe.layout].name}`, result.assignments);
+    const names = [...settings.value.names];
+    for (const [ch, name] of Object.entries(result.names)) names[Number(ch)] = name;
+    settings.update({ names });
+    return result;
   }
 
   private clearSolo(): void {
