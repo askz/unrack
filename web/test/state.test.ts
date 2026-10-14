@@ -210,6 +210,8 @@ test("an editor group is one undo step with its label", async () => {
   editor.beginGroup("Fine-tune Sub ↔ Top L");
   await editor.setMany("Tuning", [{ ref: { kind: "mute", ch: OUT2 }, value: true }, { ref: { kind: "polarity", ch: OUT1 }, value: true }]);
   await editor.setMany("Tuning", [{ ref: { kind: "delay", ch: OUT1 }, value: 2 }]);
+  assert.equal(state.undoLabel, null);
+  assert.equal(state.redoLabel, null);
   await editor.setMany("Tuning", [{ ref: { kind: "mute", ch: OUT2 }, value: false }, { ref: { kind: "polarity", ch: OUT1 }, value: false }]);
   editor.endGroup();
   assert.equal(editor.grouping, false);

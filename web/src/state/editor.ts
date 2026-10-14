@@ -120,6 +120,7 @@ export class Editor {
   /** Edits until endGroup() form one undo step with this label (a guided session). */
   beginGroup(label: string): void {
     this.history.beginGroup(label);
+    this.refreshLabels();
   }
 
   endGroup(): void {
@@ -252,8 +253,10 @@ export class Editor {
     this.refreshLabels();
   }
 
+  /** No labels while grouping: undo and redo wait for the session's Done or Cancel. */
   private refreshLabels(): void {
-    this.state.undoLabel = this.history.undoLabel;
-    this.state.redoLabel = this.history.redoLabel;
+    const open = !this.history.grouping;
+    this.state.undoLabel = open ? this.history.undoLabel : null;
+    this.state.redoLabel = open ? this.history.redoLabel : null;
   }
 }
