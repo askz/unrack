@@ -8,7 +8,7 @@
   import InputView from "./views/InputView.svelte";
   import OutputView from "./views/OutputView.svelte";
   import SystemView from "./views/SystemView.svelte";
-  import SetupView from "./setup/SetupView.svelte";
+  import SetupView from "./views/SetupView.svelte";
   import { OUT_BASE } from "./state/model.ts";
 
   const SYSTEM_KEY = "9";

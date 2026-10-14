@@ -13,17 +13,17 @@
   import { stepGainDb } from "../ui/faderTaper.ts";
   import { formatDb, formatFixed, formatHz } from "../ui/format.ts";
   import { openTextFile, saveTextFile } from "../ui/files.ts";
-  import { buildSetup } from "./build.ts";
-  import { describeChanges, previewModel } from "./review.ts";
-  import { setupDraft as draft } from "./draft.svelte.ts";
-  import { BUILTIN_PRESETS, PRESET_NAME_MAX_LENGTH, SetupFileError } from "./library.ts";
+  import { buildSetup } from "../setup/build.ts";
+  import { describeChanges, previewModel } from "../setup/review.ts";
+  import { setupDraft as draft } from "../setup/draft.svelte.ts";
+  import { BUILTIN_PRESETS, PRESET_NAME_MAX_LENGTH, SetupFileError } from "../setup/library.ts";
   import {
     CROSSOVER_RANGE, DISTANCE_RANGE, ENVIRONMENTS, ENVIRONMENT_IDS, LAYOUTS, LAYOUT_IDS, ROLE_NAMES, SHELF_RANGE,
     SLOPES, SOURCES, SUBSONIC_RANGE, TEMPERATURE_RANGE, THRESHOLD_RANGE, TRIM_RANGE, alignmentDelaysMs, checkRecipe,
     layoutRoles, usedOutputs, withEnvironment, withLayout, type Recipe, type Role, type SlopeId, type SourceId,
-  } from "./recipe.ts";
-  import LayoutCard from "./LayoutCard.svelte";
-  import CrossoverPreview from "./CrossoverPreview.svelte";
+  } from "../setup/recipe.ts";
+  import LayoutCard from "../setup/LayoutCard.svelte";
+  import CrossoverPreview from "../setup/CrossoverPreview.svelte";
 
   const SOURCE_NAMES: Record<SourceId, string> = { stereo: "Stereo A / B", mono: "Mono A" };
   const SLOPE_NAMES: Record<SlopeId, string> = { LR24: "Linkwitz-Riley 24 dB/oct", LR12: "Linkwitz-Riley 12 dB/oct" };
