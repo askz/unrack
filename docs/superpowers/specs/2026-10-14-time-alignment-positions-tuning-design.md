@@ -136,7 +136,8 @@ Rules:
    `dt = (path_a(x) / c + delay_a) - (path_b(x) / c + delay_b)` and
    `phase = 360 * fc_k * dt` degrees, not wrapped. Offsets are left out: they are meant to
    cancel the cabinets' own delay, which the geometry does not know.
-4. **Coverage.** The crowd area is sampled every 0.1 m from `startM` to `endM`. Each sample
+4. **Coverage.** The crowd area is sampled every 0.1 m from `startM` to `endM` (at most 501
+   samples; a deeper crowd gets an even, slightly larger step). Each sample
    takes the worst `|phase|` over all pairs: up to 90 = "adds", over 90 up to 120 = "weak",
    over 120 = "cancels". `coupledM` = sampled length at 120 or below.
 5. **Suggestion.** Every sample position is tried as the alignment point; the one with the
@@ -253,7 +254,8 @@ is the reliable check."
   and paths; delay limit including offsets.
 - `test/tuning.test.ts`: pairs per layout; nearest tone index; start assignments (mutes,
   relative polarity); offset range; restore assignments.
-- `test/history.test.ts`: a group merges records across time and keys into one entry.
+- `test/state.test.ts` (history and editor section): a group merges records across time and
+  keys into one entry, drops changes that came back, and a cancelled group leaves no entry.
 - Manual check in `?mock`: diagram drag and keyboard, suggestion, unit switch, a full tuning
   session (Done and Cancel), reload during a session and restore.
 
