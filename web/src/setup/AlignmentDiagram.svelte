@@ -83,7 +83,11 @@
   });
 
   const distance = (m: number) => `${formatFixed(metresToShown(m, unit), 1)} ${unit}`;
-  const crossovers = $derived(rig.crossoversHz.map((hz) => `${formatFixed(hz, 0)} Hz`).join(" and "));
+  const crossovers = $derived.by(() => {
+    const values = rig.crossoversHz.map((hz) => formatFixed(hz, 0));
+    const list = values.length > 1 ? `${values.slice(0, -1).join(", ")} and ${values[values.length - 1]}` : (values[0] ?? "");
+    return `${list} Hz`;
+  });
   const percent = $derived(result && result.totalM > 0 ? Math.round((result.coupledM / result.totalM) * 100) : 100);
 
   function clampPoint(m: number): number {
@@ -183,7 +187,7 @@
 <style>
   .diagram { display: grid; gap: 6px; margin-bottom: 10px; }
   .graph { position: relative; width: 100%; height: 200px; background: var(--graph-bg); border: 1px solid var(--line); border-radius: var(--radius); }
-  svg { position: absolute; inset: 0; display: block; }
+  svg { position: absolute; inset: 0; display: block; user-select: none; touch-action: pan-y; }
   text { font: 10px var(--font-mono); fill: var(--text-dim); }
   .caption { fill: var(--text-faint); }
   .name { font: 600 11px var(--font); fill: var(--text); }
@@ -200,7 +204,7 @@
   .hit { fill: transparent; }
   .marker { stroke: var(--accent); stroke-width: 2; }
   circle.marker { fill: var(--accent); }
-  .point:focus-visible circle.marker { stroke: var(--text); }
+  .point:focus-visible .marker { stroke: var(--text); stroke-width: 3; }
   .readout { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; }
   .legend { display: flex; gap: 14px; margin: 0; padding: 0; list-style: none; font-size: 11px; color: var(--text-dim); }
   .legend li { display: flex; align-items: center; gap: 6px; }
