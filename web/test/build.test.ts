@@ -121,7 +121,7 @@ test("trims and polarity by role, trims clamped to the gain ceiling", () => {
 test("delay only with time alignment on", () => {
   assert.equal(buildSetup(defaultRecipe("2.1")).assignments.some((a) => a.ref.kind === "delay"), false);
   const { assignments } = buildSetup(recipe("2.1", (r) => {
-    r.alignment = { enabled: true, tempC: 20, distancesM: [10, 10, 6.5658, 0] };
+    r.alignment = { ...r.alignment, enabled: true, tempC: 20, mode: "direct", distancesM: [10, 10, 6.5658, 0] };
   }));
   assert.equal(valueOf(assignments, "delay", 4), 0);
   assert.ok(Math.abs((valueOf(assignments, "delay", 6) as number) - 10) < 0.001);

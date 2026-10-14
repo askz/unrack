@@ -2,7 +2,9 @@
 // browser, and setup files. Stored data is checked when read: an unreadable entry is
 // dropped instead of breaking the Setup tab. File import is strict.
 import type { StorageLike } from "../state/settings.ts";
-import { LAYOUTS, LAYOUT_IDS, checkRecipe, coerceRecipe, defaultRecipe, withEnvironment, type LayoutId, type Recipe } from "./recipe.ts";
+import {
+  LAYOUTS, LAYOUT_IDS, checkRecipe, coerceRecipe, defaultRecipe, upgradeRecipe, withEnvironment, type LayoutId, type Recipe,
+} from "./recipe.ts";
 
 export const CUSTOM_PRESETS_KEY = "opendsp-4x4.setup-presets";
 export const DRAFT_KEY = "opendsp-4x4.setup-draft";
@@ -78,8 +80,9 @@ export function loadCustomPresets(storage: StorageLike | null): SetupPreset[] {
   for (const entry of data) {
     if (!isObject(entry) || typeof entry.id !== "string" || typeof entry.name !== "string") continue;
     const name = entry.name.trim().slice(0, PRESET_NAME_MAX_LENGTH);
-    if (!name || presets.some((preset) => preset.id === entry.id) || checkRecipe(entry.recipe).length > 0) continue;
-    const recipe = coerceRecipe(entry.recipe);
+    const raw = upgradeRecipe(entry.recipe);
+    if (!name || presets.some((preset) => preset.id === entry.id) || checkRecipe(raw).length > 0) continue;
+    const recipe = coerceRecipe(raw);
     if (recipe) presets.push({ id: entry.id, name, recipe, builtin: false });
   }
   return presets;
@@ -97,9 +100,9 @@ export function newPresetId(existing: readonly SetupPreset[]): string {
   return `custom:${n}`;
 }
 
-/** The stored form draft; null when there is none or it is not a recipe of this version. */
+/** The stored form draft (older versions upgraded); null when there is none or it is not a recipe. */
 export function loadDraft(storage: StorageLike | null): Recipe | null {
-  return coerceRecipe(readJson(storage, DRAFT_KEY));
+  return coerceRecipe(upgradeRecipe(readJson(storage, DRAFT_KEY)));
 }
 
 export function saveDraft(storage: StorageLike | null, recipe: Recipe): boolean {
@@ -129,8 +132,9 @@ export function parseSetupFile(text: string): { name: string; recipe: Recipe } {
   if (data.version !== SETUP_FILE_VERSION) {
     throw new SetupFileError([`Unsupported setup file version ${String(data.version)} (this app reads version ${SETUP_FILE_VERSION})`]);
   }
-  const problems = checkRecipe(data.recipe);
-  const recipe = problems.length === 0 ? coerceRecipe(data.recipe) : null;
+  const raw = upgradeRecipe(data.recipe);
+  const problems = checkRecipe(raw);
+  const recipe = problems.length === 0 ? coerceRecipe(raw) : null;
   if (!recipe) throw new SetupFileError(problems.map((problem) => problem.message));
   const name = typeof data.name === "string" ? data.name.trim().slice(0, PRESET_NAME_MAX_LENGTH) : "";
   return { name: name || "Imported setup", recipe };

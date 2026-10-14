@@ -92,3 +92,14 @@ test("setup file import is strict and lists the problems", () => {
     "Low shelf must be between -12 dB and 12 dB",
   ]);
 });
+
+test("a version 1 setup (file, stored preset, draft) loads in direct mode", () => {
+  const v1 = { ...defaultRecipe("2.1"), version: 1, alignment: { enabled: true, tempC: 20, distancesM: [10, 10, 6.57, 0] } };
+  const file = JSON.stringify({ format: "opendsp-4x4/setup", version: 1, name: "Old", recipe: v1 });
+  assert.equal(parseSetupFile(file).recipe.alignment.mode, "direct");
+  const storage = new MemoryStorage();
+  storage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify([{ id: "custom:1", name: "Old", recipe: v1 }]));
+  assert.equal(loadCustomPresets(storage)[0]?.recipe.alignment.mode, "direct");
+  storage.setItem(DRAFT_KEY, JSON.stringify(v1));
+  assert.deepEqual(loadDraft(storage)?.alignment.distancesM, [10, 10, 6.57, 0]);
+});
