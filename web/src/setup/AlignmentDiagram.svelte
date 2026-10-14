@@ -17,9 +17,12 @@
     unit: DistanceUnit;
     /** New alignment point (m), or null to follow the suggestion. */
     onpoint: (pointM: number | null) => void;
+    /** The point cannot be moved. */
+    disabled?: boolean;
+    title?: string;
   }
 
-  let { rig, names, bands, unit, onpoint }: Props = $props();
+  let { rig, names, bands, unit, onpoint, disabled = false, title }: Props = $props();
 
   const HEIGHT = 200;
   const PAD = { left: 16, right: 16, top: 30, bottom: 30 };
@@ -83,6 +86,8 @@
   });
 
   const distance = (m: number) => `${formatFixed(metresToShown(m, unit), 1)} ${unit}`;
+  /** A distance in the display unit, for the slider's aria values. */
+  const shownValue = (m: number) => Number(metresToShown(m, unit).toFixed(1));
   const crossovers = $derived.by(() => {
     const values = rig.crossoversHz.map((hz) => formatFixed(hz, 0));
     const list = values.length > 1 ? `${values.slice(0, -1).join(", ")} and ${values[values.length - 1]}` : (values[0] ?? "");
@@ -101,7 +106,7 @@
   }
 
   function onPointerDown(event: PointerEvent): void {
-    if (event.button !== 0) return;
+    if (disabled || event.button !== 0) return;
     dragging = true;
     try {
       (event.currentTarget as Element).setPointerCapture(event.pointerId);
@@ -112,7 +117,7 @@
   }
 
   function onPointerMove(event: PointerEvent): void {
-    if (!dragging) return;
+    if (!dragging || disabled) return;
     const next = metresAt(event.clientX);
     if (next !== pointM) onpoint(next);
   }
@@ -122,6 +127,7 @@
   }
 
   function onKeydown(event: KeyboardEvent): void {
+    if (disabled) return;
     const step = event.shiftKey ? POINT_STEP_SHIFT_M : POINT_STEP_M;
     let next: number | null = null;
     if (event.key === "ArrowLeft" || event.key === "ArrowDown") next = pointM - step;
@@ -159,8 +165,8 @@
           {distance(group.pathM)}, {formatFixed((group.pathM / speed) * 1000, 1)} ms
         </text>
       {/each}
-      <g class="point" role="slider" tabindex="0" aria-label="Alignment point"
-         aria-valuemin={crowd.startM} aria-valuemax={crowdEnd} aria-valuenow={Number(pointM.toFixed(2))}
+      <g class="point" class:disabled role="slider" tabindex="0" aria-label="Alignment point" aria-disabled={disabled}
+         aria-valuemin={shownValue(crowd.startM)} aria-valuemax={shownValue(crowdEnd)} aria-valuenow={shownValue(pointM)}
          aria-valuetext="{distance(pointM)} from the stage edge"
          onpointerdown={onPointerDown} onpointermove={onPointerMove} onpointerup={onPointerUp} onpointercancel={onPointerUp}
          onkeydown={onKeydown}>
@@ -177,7 +183,7 @@
       <span class="faint">No crossover: only the arrival times matter.</span>
     {/if}
     <span class="faint">Alignment point {distance(pointM)} from the stage edge, {alignment.pointM === null ? (suggested === null ? "the middle of the crowd" : "suggested") : "moved by you"}.</span>
-    <button disabled={alignment.pointM === null} onclick={() => onpoint(null)}>{suggested === null ? "Use the middle" : "Use suggested"}</button>
+    <button disabled={disabled || alignment.pointM === null} {title} onclick={() => onpoint(null)}>{suggested === null ? "Use the middle" : "Use suggested"}</button>
   </div>
   {#if result}
     <ul class="legend">
@@ -203,6 +209,7 @@
   .path { stroke-width: 1.5; opacity: .7; }
   .speaker { fill: color-mix(in srgb, var(--band) 30%, var(--graph-bg)); stroke: var(--band); }
   .point { outline: none; cursor: ew-resize; }
+  .point.disabled { cursor: default; }
   .hit { fill: transparent; }
   .marker { stroke: var(--accent); stroke-width: 2; }
   circle.marker { fill: var(--accent); }

@@ -88,7 +88,7 @@
   }
 
   function apply(): void {
-    if (!build || tuning.running) return;
+    if (!build || tuning.lock) return;
     const result = device.applySetup($state.snapshot(recipe) as Recipe);
     applied = { key: recipeKey, spare: result.spare };
   }
@@ -197,6 +197,7 @@
         {#each recipe.crossoversHz as hz, i (i)}
           <NumberField label="Crossover {bandName(i)} / {bandName(i + 1)}" value={hz} min={CROSSOVER_RANGE.min} max={CROSSOVER_RANGE.max}
                        step={freqStep} log format={formatHz} unit="Hz" width="150px" error={problemAt(`crossoversHz.${i}`)}
+                       disabled={tuning.running !== null}
                        onchange={(value) => draft.edit((r) => { r.crossoversHz[i] = value; })} />
         {/each}
         {#if recipe.crossoversHz.length > 0}
@@ -329,8 +330,8 @@
         </details>
       {/if}
       <div class="row">
-        <button class="primary" disabled={!build || changes.length === 0 || tuning.running !== null}
-                title={tuning.running ? TUNING_LOCKED : undefined} onclick={apply}>
+        <button class="primary" disabled={!build || changes.length === 0 || tuning.lock !== null}
+                title={tuning.lock ?? undefined} onclick={apply}>
           Apply{changes.length > 0 ? ` ${changes.length} change${changes.length === 1 ? "" : "s"}` : ""}
         </button>
         {#if !device.connected}<span class="faint">Offline: this changes the screen only.</span>{/if}

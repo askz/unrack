@@ -6,14 +6,16 @@
     label: (option: T) => string;
     onchange: (option: T) => void;
     ariaLabel: string;
+    disabled?: boolean;
+    title?: string;
   }
 
-  let { options, value, label, onchange, ariaLabel }: Props = $props();
+  let { options, value, label, onchange, ariaLabel, disabled = false, title }: Props = $props();
 </script>
 
-<div class="choice" role="group" aria-label={ariaLabel}>
+<div class="choice" role="group" aria-label={ariaLabel} {title}>
   {#each options as option (option)}
-    <button type="button" class:primary={option === value} aria-pressed={option === value}
+    <button type="button" class:primary={option === value} aria-pressed={option === value} {disabled}
             onclick={() => { if (option !== value) onchange(option); }}>{label(option)}</button>
   {/each}
 </div>

@@ -68,9 +68,10 @@
               <td class="num">{slotLabel(slot)}</td>
               <td>{device.presetNames[slot] ?? "—"}{#if device.activePreset === slot}<span class="tag">active{device.modified ? ", edited" : ""}</span>{/if}</td>
               <td class="buttons">
-                <button disabled={!device.connected || busy || tuning.running !== null} title={tuning.running ? TUNING_LOCKED : undefined}
+                <button disabled={!device.connected || busy || tuning.lock !== null} title={tuning.lock ?? undefined}
                         onclick={() => device.recallPreset(slot)}>Recall</button>
-                <button disabled={!device.connected || busy} onclick={() => (storeSlot = slot)}>Store</button>
+                <button disabled={!device.connected || busy || tuning.lock !== null} title={tuning.lock ?? undefined}
+                        onclick={() => (storeSlot = slot)}>Store</button>
               </td>
             </tr>
           {/each}
@@ -83,7 +84,7 @@
     <p class="dim">A file holds every parameter of the live state. Importing applies it as one undoable change and sends only the values that differ.</p>
     <div class="row">
       <button onclick={exportPresetFile}>Export to file…</button>
-      <button disabled={busy || tuning.running !== null} title={tuning.running ? TUNING_LOCKED : undefined} onclick={importPresetFile}>Import from file…</button>
+      <button disabled={busy || tuning.lock !== null} title={tuning.lock ?? undefined} onclick={importPresetFile}>Import from file…</button>
     </div>
   </Section>
 
@@ -92,10 +93,11 @@
     <label class="row"><input type="checkbox" bind:checked={toneArmed} /> Enable test tones</label>
     <div class="row">
       {#each TONE_SOURCE_LABELS as label, source (label)}
-        <button class:primary={toneSource === source} disabled={!device.connected || (source !== 0 && !toneArmed)}
-                onclick={() => setTone(source)}>{label}</button>
+        <button class:primary={toneSource === source} disabled={!device.connected || (source !== 0 && !toneArmed) || tuning.running !== null}
+                title={tuning.running ? TUNING_LOCKED : undefined} onclick={() => setTone(source)}>{label}</button>
       {/each}
-      <select value={toneFreq} disabled={toneSource !== SINE} aria-label="Sine frequency"
+      <select value={toneFreq} disabled={toneSource !== SINE || tuning.running !== null} aria-label="Sine frequency"
+              title={tuning.running ? TUNING_LOCKED : undefined}
               onchange={(event) => setToneFreq(Number(event.currentTarget.value))}>
         {#each TONE_FREQS as hz, index (index)}<option value={index}>{hz >= 1000 ? `${hz / 1000}k` : hz} Hz</option>{/each}
       </select>

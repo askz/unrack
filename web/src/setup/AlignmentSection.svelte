@@ -40,6 +40,9 @@
   const positions = $derived(recipe.alignment.mode === "positions");
   const unit = $derived(settings.value.distanceUnit);
   const temperatureUnit = $derived(settings.value.temperatureUnit);
+  /** The session's delays come from these values: they stay as they are until it ends. */
+  const locked = $derived(tuning.running !== null);
+  const lockTitle = $derived(locked ? TUNING_LOCKED : undefined);
 
   const clampTo = (value: number, range: Range) => Math.min(range.max, Math.max(range.min, value));
   const shown = (metres: number) => metresToShown(metres, unit);
@@ -58,12 +61,13 @@
 
 <Section title="Time alignment">
   {#snippet actions()}
-    <Toggle pressed={recipe.alignment.enabled} title={tuning.running ? TUNING_LOCKED : "Time alignment"} disabled={tuning.running !== null}
+    <Toggle pressed={recipe.alignment.enabled} title={lockTitle ?? "Time alignment"} disabled={locked}
             onchange={(on) => draft.edit((r) => { r.alignment.enabled = on; })}>{recipe.alignment.enabled ? "On" : "Off"}</Toggle>
   {/snippet}
   {#if recipe.alignment.enabled}
     <div class="row">
       <Choice options={ALIGNMENT_MODES} value={recipe.alignment.mode} label={(mode) => MODE_NAMES[mode]} ariaLabel="How the speakers are placed"
+              disabled={locked} title={lockTitle}
               onchange={(mode) => draft.edit((r) => { r.alignment.mode = mode; })} />
     </div>
     {#if positions}
@@ -75,22 +79,24 @@
       <NumberField label="Air temperature" value={celsiusToShown(recipe.alignment.tempC, temperatureUnit)}
                    min={celsiusToShown(TEMPERATURE_RANGE.min, temperatureUnit)} max={celsiusToShown(TEMPERATURE_RANGE.max, temperatureUnit)}
                    step={TEMPERATURE_STEP} format={(v) => formatFixed(v, 0)} unit="°{temperatureUnit}" error={problemAt("alignment.tempC")}
+                   disabled={locked}
                    onchange={(value) => draft.edit((r) => { r.alignment.tempC = clampTo(shownToCelsius(value, temperatureUnit), TEMPERATURE_RANGE); })} />
       {#if positions}
         <NumberField label="Crowd from" value={shown(recipe.alignment.crowd.startM)} min={shown(CROWD_RANGE.min)} max={shown(CROWD_RANGE.max)}
                      step={DISTANCE_STEP} format={formatDistance} {unit} error={problemAt("alignment.crowd.startM")}
-                     onchange={(value) => setCrowdEdge("startM", value)} />
+                     disabled={locked} onchange={(value) => setCrowdEdge("startM", value)} />
         <NumberField label="Crowd to" value={shown(recipe.alignment.crowd.endM)} min={shown(CROWD_RANGE.min)} max={shown(CROWD_RANGE.max)}
                      step={DISTANCE_STEP} format={formatDistance} {unit} error={problemAt("alignment.crowd.endM")}
-                     onchange={(value) => setCrowdEdge("endM", value)} />
+                     disabled={locked} onchange={(value) => setCrowdEdge("endM", value)} />
         <NumberField label="Ear height" value={shown(recipe.alignment.crowd.earHeightM)} min={shown(EAR_HEIGHT_RANGE.min)}
                      max={shown(EAR_HEIGHT_RANGE.max)} step={DISTANCE_STEP} format={formatDistance} {unit}
-                     error={problemAt("alignment.crowd.earHeightM")}
+                     error={problemAt("alignment.crowd.earHeightM")} disabled={locked}
                      onchange={(value) => draft.edit((r) => { r.alignment.crowd.earHeightM = toMetres(value, EAR_HEIGHT_RANGE); })} />
       {/if}
     </div>
     {#if positions}
       <AlignmentDiagram {rig} names={layout.outputs.map((output) => output?.name ?? null)} bands={bandCount(layout)} {unit}
+                        disabled={locked} title={lockTitle}
                         onpoint={(pointM) => draft.edit((r) => { r.alignment.pointM = pointM; })} />
       {#if problemAt("alignment.pointM")}<p class="error">{problemAt("alignment.pointM")}</p>{/if}
     {/if}
@@ -112,20 +118,20 @@
               <td>
                 <NumberField ariaLabel="{output.slot.name} distance from the stage edge" value={shown(speaker.xM)}
                              min={shown(POSITION_RANGE.min)} max={shown(POSITION_RANGE.max)} step={DISTANCE_STEP} format={formatDistance} {unit}
-                             error={problemAt(`alignment.speakers.${output.index}.xM`)}
+                             error={problemAt(`alignment.speakers.${output.index}.xM`)} disabled={locked}
                              onchange={(value) => draft.edit((r) => { r.alignment.speakers[output.index]!.xM = toMetres(value, POSITION_RANGE); })} />
               </td>
               <td>
                 <NumberField ariaLabel="{output.slot.name} height" value={shown(speaker.heightM)}
                              min={shown(HEIGHT_RANGE.min)} max={shown(HEIGHT_RANGE.max)} step={DISTANCE_STEP} format={formatDistance} {unit}
-                             error={problemAt(`alignment.speakers.${output.index}.heightM`)}
+                             error={problemAt(`alignment.speakers.${output.index}.heightM`)} disabled={locked}
                              onchange={(value) => draft.edit((r) => { r.alignment.speakers[output.index]!.heightM = toMetres(value, HEIGHT_RANGE); })} />
               </td>
             {:else}
               <td>
                 <NumberField ariaLabel="Distance to {output.slot.name}" value={shown(recipe.alignment.distancesM[output.index] ?? 0)}
                              min={shown(DISTANCE_RANGE.min)} max={shown(DISTANCE_RANGE.max)} step={DISTANCE_STEP} format={formatDistance} {unit}
-                             error={problemAt(`alignment.distancesM.${output.index}`)}
+                             error={problemAt(`alignment.distancesM.${output.index}`)} disabled={locked}
                              onchange={(value) => draft.edit((r) => { r.alignment.distancesM[output.index] = toMetres(value, DISTANCE_RANGE); })} />
               </td>
             {/if}
@@ -133,7 +139,7 @@
             <td class="num">
               {#if offset !== 0}
                 {formatDb(offset, 2)} ms
-                <button class="ghost" title="Remove the fine-tune offset of {output.slot.name}"
+                <button class="ghost" title={lockTitle ?? `Remove the fine-tune offset of ${output.slot.name}`} disabled={locked}
                         onclick={() => draft.edit((r) => { r.alignment.offsetsMs[output.index] = 0; })}>Reset</button>
               {:else}
                 <span class="faint">none</span>
