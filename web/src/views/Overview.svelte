@@ -113,6 +113,6 @@
   @media (max-width: 760px) {
     .strips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .strip.output-start { margin-left: 0; }
-    .strip { grid-template-rows: auto 90px auto auto auto; }
+    .strip { grid-template-rows: auto 140px auto auto auto; }
   }
 </style>
