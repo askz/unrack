@@ -26,20 +26,19 @@ bytes equal to 0x10 are **not** escaped: the device locates the terminator by th
 field, and escaping breaks the frame (hardware-verified). Verified: poll `10 02 00 01 01 40 10 03 41`
 (0x40, cksum 0x41), mute `10 02 00 01 03 35 04 01 10 03 33`.
 
-**Reply (device→host):**
+**Reply (device→host):** framed like a request.
 ```
-[0]      = 0x02                 frame/type marker
-[1]      = id                   device id
-[2]      = 0x00
-[3]      = N                    payload length (includes the command-code byte)
-[4]      = command code         e.g. 0x52 = version reply
-[5..3+N] = payload              (N-1 data bytes)
-[4+N]    = 0x10                 DLE
-[5+N]    = 0x03                 ETX   (so 0x10 0x03 terminates the frame)
-[6+N]    = checksum = XOR(bytes[1 .. 3+N]) ^ 1
+10 02            DLE STX
+01               device id
+00
+N                payload length = 1 + data.length  (code byte + data)
+code             reply code, e.g. 0x52 = version reply
+<data…>          N-1 bytes
+10 03            DLE ETX   (found by the length field, not by scanning)
+checksum         = XOR(01, 00, N, code, …data) ^ 1
 ```
 Total frame = N+8 bytes (≤ 64). At the codec layer the reply payload is read as
-`[0x01, 0x00, N, code, …data]` (N = 1 + data length).
+`[0x01, 0x00, N, code, …data]` (`web/src/protocol/frame.ts`).
 
 > Note: a *different* 16-bit one's-complement checksum applies to the unit's RS-232 /
 > network transport — don't confuse it with the USB-HID `XOR(bytes)^1` above.
@@ -81,7 +80,7 @@ routing, linking) is exposed by the app.
 **Full DSP-block opcodes (observed, one control at a time):**
 | code | block | payload | notes |
 |------|-------|---------|-------|
-| `0x30` | compressor | `[chan, ratio, knee, attack16, release16, threshold16]` | ratio idx 0–14 into `[1.0, 1.1, 1.3, 1.5, 1.7, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 8.0, 10.0, 20.0]` (firmware table at `0xa52c`); knee 0–12 dB; **attack/release raw, ms = raw + 1** (firmware-confirmed); **threshold raw=(dB+90)·2** |
+| `0x30` | compressor | `[chan, ratio, knee, attack16, release16, threshold16]` | ratio idx 0–14 into `[1.0, 1.1, 1.3, 1.5, 1.7, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 8.0, 10.0, 20.0]` (firmware table at `0xa52c`); the app also sends index 15, shown as *Limit* (used by Setup's protection limiters), which has no entry in that table, so what the device does with it is not verified; knee 0–12 dB; **attack/release raw, ms = raw + 1** (firmware-confirmed); **threshold raw=(dB+90)·2** |
 | `0x31` | crossover LPF | `[chan, freq16, slope]` | **freq Hz = 19.7·2^(raw/30)**, raw 0–300 (30 steps/oct — coarser than PEQ); slope codes below |
 | `0x32` | crossover HPF | `[chan, freq16, slope]` | same freq scale as LPF |
 | `0x33` | PEQ band | `[chan, band, gain16, freq16, q8, type8, bypass8]` | **gain raw 0–240, 0 dB=120, 0.1 dB/step** (`dB=(raw−120)/10`); **freq = 16-bit log index, Hz=19.7·2^(idx/30)** (idx 0–300, *same scale as crossover*); **q8** single byte, **exponential `Q = 128 / 1.0594^(100−q8)`** (q8 16 = Q 1.0, every +12 doubles Q, q8 100 = Q 128 — firmware-confirmed, see [`docs/FIRMWARE.md`](docs/FIRMWARE.md)); type below. NB gain comes first (not RBJ order) — capture-verified (40.3 Hz = idx 31) |
@@ -90,7 +89,7 @@ routing, linking) is exposed by the app.
 | `0x36` | polarity | `[chan, invert]` | |
 | `0x38` | delay | `[chan, samples16]` | **48 kHz**; ms=samples/48; max 32640=680 ms |
 | `0x3a` | routing | `[out_chan, input_mask]` | bits InA=1,InB=2,InC=4,InD=8 |
-| `0x3e` | gate | `[chan, attack16, release16, hold16, threshold16]` | ms; threshold raw=(dB+90)·2 (range 0–180) |
+| `0x3e` | gate | `[chan, attack16, release16, hold16, threshold16]` | **attack/release/hold raw, ms = raw + 1** (as the compressor); threshold raw=(dB+90)·2 (range 0–180) |
 | `0x2f` | lock password | `[4 ASCII]` | default "1234" |
 | `0x39` | test tone | `[source, freqIndex]` | source 0=off/input,1=pink,2=white,3=sine; freqIndex 0–30 = 1/3-oct 20 Hz–20 kHz |
 
@@ -100,6 +99,9 @@ string `"4x4MINIPRO V010"`; `0x2c`→7-byte config; `0x22`→30-byte flags/link 
 blocks (reply code `0x24`, 50 bytes each: name + DSP params); `0x12`→finalize (ack `0x01`);
 then steady `0x40` level polling. (`0x52` also returns a longer version string, e.g.
 `"4x4MINIPRO V010 20230106A"`.)
+
+Unrack connects with a shorter sequence: `0x10`, `0x13`, `0x52`, then `0x27 [0..8]`, `0x14`,
+`0x29 [0..29]`, then `0x12`, and polls `0x40`. It skips `0x2c` and `0x22`, which it does not need.
 
 **Level reply (`0x40`)** — reply `[01,00,N=0x1c,0x40, …27 data bytes]`. 8 channels × 3 bytes,
 order **In A–D, Out 1–4**. Each triplet `[d0, d1, d2]` is a 32-bit linear DSP level word packed as
@@ -130,8 +132,9 @@ below are **probe-verified** (wrote distinctive known values, read back, matched
   the per-channel record array that `0x27`/`0x24` serializes, and no opcode the editor uses
   exposes it. The firmware confirms this: the `0x35` handler keeps mute in two RAM half-words
   (outputs/inputs), pushes them to DSP coefficients, and no command handler ever returns them.
-  So neither the editor nor this app can restore mute on connect; both default to
-  un-muted. `0x22` is a static `ff ff 00 00…` channel-present/link map, **not** mute. PEQ
+  So neither the editor nor this app can restore mute on connect: the vendor editor assumes
+  un-muted, Unrack shows each mute as unknown (`?`) until it is set, and keeps a mute it knows
+  across a preset recall. `0x22` is a static `ff ff 00 00…` channel-present/link map, **not** mute. PEQ
   per-band **bypass** also isn't in the image (command-only).
 
 Decoded in `readback.ts` (`parsePresetImage`); the store hydrates every field on connect.
@@ -148,8 +151,11 @@ corrected in the codec.
 `5`Allpass1 `6`Allpass2.
 
 ## Implementation
-Built + golden-tested in `web/src/protocol/{commands,control,blocks,readback}.ts`. The codec
-sends high-level parameters (freq/gain/Q/type); the device computes the biquads internally.
+Built + golden-tested in `web/src/protocol/{frame,commands,control,blocks,readback,exchange}.ts`.
+The codec sends high-level parameters (freq/gain/Q/type); the device computes the biquads
+internally. `exchange.ts` holds the reply rules above and the reply timeouts (150 ms, recall
+1.5 s, store 4 s); `web/src/transport/channel.ts` keeps one transaction in flight, retries,
+puts user edits before meter polls, and merges queued writes to the same parameter.
 
 The editor quantizes every value to these encodings before sending
 (`web/src/state/params.ts`). `npm run hw:smoke` writes PEQ bands, a crossover, delay,
@@ -163,4 +169,4 @@ guess), PEQ frequency (`19.72·2^(idx/30)`), the compressor ratio table, compres
 scaling (`ms = raw + 1`), and that mute has no query path.
 
 **Remaining gaps:** a handful of low opcodes seen in the startup handshake are unmapped readback
-variants; compressor/gate times are now scaled by `ms = raw + 1` per the firmware.
+variants, and compressor ratio index 15 (*Limit*) is outside the firmware's ratio table.

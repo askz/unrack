@@ -1,6 +1,6 @@
 # Capturing a USB session — help add support for your device
 
-openDSP-4x4 learns how to talk to a device by **watching how the official Windows editor talks to
+Unrack learns how to talk to a device by **watching how the official Windows editor talks to
 it over USB** — no firmware, no guesswork. So if you own a related unit — for example a **t.racks
 DSP206 / DSP408**, or the equivalent **Peavey VSX26e / VSX48e**, which share the 4x4's editor — you
 can help add support just by recording a short USB session and sending it over.

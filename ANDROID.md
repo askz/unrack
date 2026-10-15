@@ -1,6 +1,7 @@
 # How the Android app works — a WebView + USB-bridge walkthrough
 
-openDSP-4x4 runs on Android by **wrapping the existing web app in a thin WebView** and handing
+Unrack runs on Android (the app is still labelled openDSP-4x4 on the phone) by **wrapping the
+existing web app in a thin WebView** and handing
 it a small native USB pipe. This page explains why, and walks through the pieces. It doubles as
 a reusable recipe for getting any WebHID/WebUSB app onto a phone when the browser can't reach
 the hardware.
@@ -14,8 +15,8 @@ Android there is *no* browser path to this device:
 - **WebUSB** is implemented, but it **blocks the HID interface class** for security.
 
 So the USB I/O has to be native. Everything else — the UI, the protocol codec, the EQ maths —
-is reused unchanged. The whole Android-specific surface is three small Kotlin files plus ~100
-lines of TypeScript.
+is reused unchanged. The whole Android-specific surface is four small Kotlin files plus a
+140-line TypeScript link.
 
 ## The one seam that makes this cheap
 
@@ -25,11 +26,13 @@ in [`web/src/transport/link.ts`](web/src/transport/link.ts): a raw HID byte pipe
 ```ts
 interface HidLink {
   readonly productName: string;
+  readonly simulated?: boolean;                        // the built-in demo device
+  readonly timeoutSlackMs?: number;                    // extra reply time of a network hop
   open(): Promise<void>;
   close(): Promise<void>;
   write(report: Uint8Array): Promise<void>;            // one 64-byte output report
   onReport(listener: (report: Uint8Array) => void): () => void;
-  onDisconnect(listener: () => void): () => void;       // unplugged / permission revoked
+  onDisconnect(listener: (reason?: string) => void): () => void;  // unplugged / revoked / taken over
 }
 ```
 
@@ -59,8 +62,9 @@ in [`channel.ts`](web/src/transport/channel.ts), shared by both platforms.
 
 Two more small edits wire it up:
 
-- [`platform.ts`](web/src/transport/platform.ts) picks the link: native bridge present →
-  `NativeLink`, else `WebHidLink`.
+- [`platform.ts`](web/src/transport/platform.ts) picks the link: the ESP32 build → the
+  WebSocket link, native bridge present → `NativeLink`, else `WebHidLink`. The demo device is
+  never offered in the Android app.
 - [`vite.config.ts`](web/vite.config.ts) — `VITE_TARGET=android` sets `base: "./"` so the
   bundle's asset paths resolve under the WebView's asset-loader host.
 
@@ -87,7 +91,7 @@ it is present.
 
 ## Step 3 — the Kotlin shell (`android/`)
 
-Three small files:
+Four small files (the fourth, `FileBridge.kt`, is the preset-file bridge above):
 
 - **[`MainActivity.kt`](android/app/src/main/java/net/opendsp/x4x4/MainActivity.kt)** — a
   full-screen WebView that serves the bundled UI from
@@ -134,7 +138,8 @@ One script, [`android/build-apk.sh`](android/build-apk.sh), runs the whole chain
 bundle in Android mode → copy `web/dist/*` into `app/src/main/assets/www/` →
 `./gradlew assembleDebug`.
 
-Releases are automated. Tag `vX.Y.Z` and
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds a debug APK for every push
+to `main` and every pull request. Releases are automated. Tag `vX.Y.Z` and
 [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml) verifies the web
 bundle (typecheck + tests), assembles a **signed** APK (keystore from repo secrets, with a
 debug-key fallback so it still builds without them), and publishes a GitHub Release. The signing
@@ -156,5 +161,5 @@ secret names are in the workflow header.
 
 Verified end-to-end on a Pixel 8 Pro over USB-OTG: attach → permission → version handshake
 (`4x4MINIPRO V010`) → full state readback/hydrate → preset recall, routing and live meters.
-Released as `v0.2.0`. Hot-unplug is reported through `__dsp_onState(false)` (detach receiver)
+Latest release: `v0.2.2`. Hot-unplug is reported through `__dsp_onState(false)` (detach receiver)
 and moves the connection to "lost"; replugging re-binds via the attach intent.

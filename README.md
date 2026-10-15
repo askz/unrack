@@ -8,7 +8,7 @@ USB-OTG, and over Wi-Fi from any browser through an ESP32-S3 plugged into the DS
 > **Only one device is supported today: the t.racks DSP 4x4 Mini Pro.** More DSPs are planned,
 > see [Compatibility](#compatibility) and how to help.
 
-**[Open the web app](https://askz.github.io/unrack/)** · plug the DSP in, click *Connect…*.
+**[Open the web app](https://askz.github.io/unrack/)** · plug the DSP in, click *Connect DSP…*.
 No DSP plugged in? It opens a demo with a simulated DSP ([try the demo](https://askz.github.io/unrack/?demo)).
 
 ![Unrack on the demo device: the Overview with live meters, an output's EQ, Setup with a layout and time alignment, System and Settings](docs/demo.webp)
@@ -44,14 +44,29 @@ support. Since the fork, the transport, state layer and UI have been rebuilt.
 - **All device parameters**: gain, mute, polarity, delay, routing, 7-band PEQ (peak, shelves,
   pass, all-pass), high/low-pass crossovers (Butterworth, Bessel, Linkwitz-Riley), compressor /
   limiter, noise gate, test tone, front-panel lock password.
-- **Classic editor layout**: overview of all eight channels plus routing matrix, one tab per
-  channel, System page (device facts, 30 preset slots, preset files, issue log). Works at
-  phone width.
+- **Classic editor layout**: overview of all eight channels as mixer strips plus the routing
+  matrix, one tab per channel, System page (device facts, 30 preset slots, preset files, test
+  tone, issue log). Works at phone width.
+- **Mixer tools**: solo on outputs, *Mute all* (and back to how the mutes were), and a master
+  trim that moves all four output gains together, keeping their differences.
+- **Setup**: pick a speaker layout (2.0 stereo, 2.1, 2.2, Top / Kick / Sub in stereo or mono,
+  bi-amp stereo, 4-way mono) and an environment (neutral, indoor, outdoor, club, speech,
+  background); Setup derives the crossovers (Linkwitz-Riley 12 or 24 dB/oct), a subsonic
+  filter, trims, polarity, shelves, output names and optional protection limiters. A
+  crossover preview and the exact list of changes come before *Apply*, which is one undo step.
+  Built-in presets, your own presets saved in the browser, and setup files.
+- **Time alignment** (in Setup): delays from the speakers' positions and the crowd area in a
+  side view, or from measured distances, corrected for air temperature; the view shows where
+  in the crowd the bands add up or cancel at the crossover. **Fine-tune by ear** then finds
+  the cabinets' own delay with a sine and a polarity flip on one pair of outputs.
+- **Settings** (saved in the browser): channel names, colours and visibility, step sizes, EQ
+  width as Q or octaves, EQ graph range, meter peak hold, theme (dark, light or like the
+  system), density, text size, metric or imperial units, an output gain limit, startup view.
 - **Exact values**: every edit is quantized to the device's own resolution (0.1 dB gain,
   1/30-octave frequency, Q in 0.1 steps, 1/48 ms delay), so what the screen shows is what the
   DSP stores. Verified by reading the device back after writing.
-- **Undo / redo** (Ctrl/⌘+Z, Ctrl/⌘+Shift+Z) for every parameter; a fader or EQ-handle drag is
-  one step.
+- **Undo / redo** (Ctrl/⌘+Z, Ctrl/⌘+Shift+Z or Ctrl+Y) for every parameter; a fader or
+  EQ-handle drag is one step.
 - **Delivery tracking**: each parameter shows whether it is sending, rejected, or not sent
   (offline), with a *Resend* action. Nothing fails silently.
 - **Presets**: recall/store the 30 device slots (store asks for confirmation); after a recall
@@ -63,8 +78,8 @@ support. Since the fork, the transport, state layer and UI have been rebuilt.
   gain, mute, routing and test tone, so every page can be tried; *Connect DSP…* switches to
   the real device.
 - **EQ link** (mirror edits across two outputs) and **copy EQ** between outputs.
-- Keyboard: `0` overview, `1`–`8` channels, `9` system; arrows / PageUp / PageDown / wheel step
-  numeric fields (Shift ×10, Alt ×0.1); values accept `1.2k`, `-6,5 dB`, …
+- Keyboard: `0` overview, `1`–`8` channels, `9` system, `S` setup; arrows / PageUp / PageDown /
+  wheel step numeric fields (Shift ×10, Alt ×0.1); values accept `1.2k`, `-6,5 dB`, …
 
 ## Wi-Fi bridge (ESP32-S3)
 
@@ -96,7 +111,7 @@ is plugged into the computer.
 least 8 MB of flash should work). The DSP's USB cable goes into the board's **USB** (OTG) port;
 the **UART** port is for flashing and power.
 
-**Build and flash** (ESP-IDF 6.0):
+**Build and flash** (ESP-IDF 6.0.1 or later):
 
 ```sh
 cd web && npm ci && npm run build:esp     # packs the UI into firmware/www/
@@ -150,7 +165,8 @@ npm run build
 - **Bridge firmware tests**: `make -C firmware/test test` runs the ESP32's protocol code on the
   host.
 - **Android**: [`ANDROID.md`](ANDROID.md) explains the WebView shell and USB bridge;
-  `android/build-apk.sh` builds a debug APK (Android SDK + JDK 17). CI builds one on every push.
+  `android/build-apk.sh` builds a debug APK (Android SDK + JDK 17). CI builds one for every push
+  to `main` and every pull request.
 
 ### Architecture
 
@@ -161,12 +177,15 @@ web/src/
               (one transaction in flight, reply matching, retries, priority lanes, coalescing)
   dsp.ts      typed client for every command
   state/      connection lifecycle · parameter registry · editor (undo, links, delivery
-              tracking) · readback → model · preset files · Svelte store facade
+              tracking) · readback → model · preset files · settings · Svelte store facade
+  eq/         filter responses for the EQ and crossover graphs
+  setup/      Setup: layouts, environments, time alignment, fine tuning, setup presets
+  esp/        ESP32 bridge: login, Wi-Fi and update settings
   shell/ views/ channel/ ui/   Svelte 5 UI
 ```
 
-Everything below `shell/`/`views/` is plain TypeScript with unit tests; the UI only calls the
-store facade.
+Everything outside the Svelte components is plain TypeScript, most of it with unit tests; the
+components call the store facade and those modules.
 
 ## Repo layout
 
