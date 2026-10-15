@@ -11,7 +11,7 @@ import { muteAllAssignments, outputMutes, restoreAssignments, soloAssignments, t
 import { settings } from "./settings.svelte.ts";
 import { buildSetup, type SetupResult } from "../setup/build.ts";
 import { LAYOUTS, type Recipe } from "../setup/recipe.ts";
-import { platformLinkProvider } from "../transport/platform.ts";
+import { demoAvailable, demoLink, platformLinkProvider } from "../transport/platform.ts";
 import { ProtocolError, emptyStats, type ChannelStats } from "../transport/channel.ts";
 import type { Dsp, DeviceInfo } from "../dsp.ts";
 import { defaultCalibration } from "../eq/calibration.ts";
@@ -39,6 +39,8 @@ export class DeviceStore {
   connectionError = $state("");
   info = $state<DeviceInfo | null>(null);
   productName = $state("");
+  /** The bound device is the demo. */
+  simulated = $state(false);
   stats = $state<ChannelStats>(emptyStats());
   /** Label of the long-running operation in progress (recall/store/import), or "". */
   busy = $state("");
@@ -73,12 +75,13 @@ export class DeviceStore {
         this.stopMeters();
         this.clearSolo();
       },
-    });
+    }, demoAvailable() ? demoLink : null);
     this.connection.onChange((snapshot) => {
       this.phase = snapshot.phase;
       this.connectionError = snapshot.error;
       this.info = snapshot.info;
       this.productName = snapshot.productName;
+      this.simulated = snapshot.simulated;
       this.stats = snapshot.stats;
     });
     this.phase = this.connection.snapshot.phase;
@@ -88,6 +91,10 @@ export class DeviceStore {
 
   get connected(): boolean { return this.phase === "ready"; }
   get supported(): boolean { return this.phase !== "unsupported"; }
+  /** The platform can reach a real DSP (Connect can open the picker). */
+  get hardwareSupported(): boolean { return this.connection.hardwareSupported; }
+  /** The demo device can run here. */
+  get demoAvailable(): boolean { return this.connection.demoAvailable; }
   get channels(): Channel[] { return this.edit.model.channels; }
   get routing(): number[] { return this.edit.model.routing; }
   get presetName(): string { return this.edit.model.presetName; }
@@ -128,6 +135,7 @@ export class DeviceStore {
   connect(): Promise<void> { return this.connection.connect(); }
   /** False when no granted device was found. */
   autoConnect(): Promise<boolean> { return this.connection.autoConnect(); }
+  connectDemo(): Promise<void> { return this.connection.connectDemo(); }
   disconnect(): Promise<void> { return this.connection.disconnect(); }
   clearIssues(): void { this.issues = []; }
 
