@@ -1,0 +1,28 @@
+CONFIG_IDF_TARGET="esp32s3"
+
+# 8 MB flash (ESP32-S3-DevKitC-1-N8*); see docs/ESP32.md for other sizes
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
+
+# Two OTA slots with rollback of an image that never reports healthy
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# HTTP server: WebSocket, with connect logic in the post-handshake callback (IDF >= 6.0.1)
+CONFIG_HTTPD_WS_SUPPORT=y
+CONFIG_HTTPD_WS_POST_HANDSHAKE_CB_SUPPORT=y
+
+CONFIG_LWIP_MAX_SOCKETS=16
+CONFIG_FREERTOS_HZ=1000
+
+# Latency: full CPU clock, code optimised for speed, lwIP hot paths in IRAM
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_LWIP_IRAM_OPTIMIZATION=y
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
+
+# Wi-Fi tuned for latency; power save is also switched off at runtime
+CONFIG_ESP_WIFI_SOFTAP_SUPPORT=y
+
+CONFIG_HTTPD_WS_PRE_HANDSHAKE_CB_SUPPORT=y

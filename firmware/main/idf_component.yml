@@ -1,0 +1,6 @@
+dependencies:
+  idf: ">=6.0.1"
+  espressif/usb: "^1.6.0"
+  espressif/cjson: "^1.7.19"
+  espressif/mdns: "^1.14.0"
+  joltwallet/littlefs: "^1.22.3"
