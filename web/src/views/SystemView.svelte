@@ -129,7 +129,7 @@
 
   <Section title="About">
     <p class="dim">
-      openDSP-4x4 — open-source control software for the t.racks DSP 4x4 Mini Pro, built from observed USB traffic.
+      Unrack: open-source control software for rack DSPs (today the t.racks DSP 4x4 Mini Pro), built from observed USB traffic.
       Licensed under the <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL-3.0</a>;
       <a href="https://github.com/askz/opendsp-4x4">source code</a>.
       Not affiliated with or endorsed by Thomann.

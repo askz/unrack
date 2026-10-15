@@ -26,7 +26,7 @@
 </script>
 
 <header class="topbar">
-  <div class="brand">openDSP <span class="dim">4x4</span></div>
+  <div class="brand">Unrack</div>
 
   <div class="group presets">
     <select bind:value={slot} disabled={!device.connected} aria-label="Preset slot">
