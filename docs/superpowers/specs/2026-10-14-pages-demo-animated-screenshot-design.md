@@ -36,8 +36,10 @@ Order: the demo first, then the recording (the recording is made from the demo).
   - `MUTE` (0x35) `[chan, on]`.
   - `ROUTING` (0x3a) `[out_chan, input_bitmask]` (In A = 1, In B = 2, In C = 4, In D = 8).
   - `TEST_TONE` (0x39) `[source, freqIndex]`; source 0 = off.
-- Initial state, and the state after `RECALL_PRESET`: gains and routing from the factory preset
-  image (every slot holds the factory preset in the simulation), all channels unmuted, tone off.
+- Its preset image (every slot in the simulation) is the factory image with Out 3 and Out 4
+  routed from In A + In B, so all four outputs carry signal from the start.
+- Initial state, and the state after `RECALL_PRESET`: gains and routing from that image, all
+  channels unmuted, tone off.
 - While open, the levels are recomputed every 100 ms from `demoLevels.ts`; the timer stops on
   close.
 - Uses the same recall and store latencies as the dev mock today.
@@ -90,12 +92,14 @@ Order: the demo first, then the recording (the recording is made from the demo).
 
 ### Startup
 
-A pure function decides what happens on open, from: web build or Android app, whether `?demo`
-(or `?mock`) is in the URL, and whether the auto-connect bound a device.
+A pure function decides what happens on open, from: the ESP32 build, the Android app, and
+whether `?demo` (or `?mock`) is in the URL.
 
+- ESP32 build: the bridge login and auto-connect as today, never the demo.
 - Android app: auto-connect only, never the demo.
 - `?demo` in the URL: the demo, without auto-connecting.
-- Otherwise: the existing auto-connect; if nothing was bound, the demo.
+- Otherwise: the existing auto-connect; if it found no granted device, the demo. A granted
+  device that fails to open keeps its error on screen (no demo over it).
 
 ### UI
 
@@ -132,7 +136,8 @@ A pure function decides what happens on open, from: web build or Android app, wh
 - `playwright-core` as a pinned dev dependency, no browser download. Chrome from `CHROME_PATH`,
   else `google-chrome-stable` or `chromium` on the PATH. ffmpeg with `libwebp_anim` is required.
   The script checks both first and names what is missing.
-- It runs `npm run build`, serves `dist` with `vite preview` on a free port and opens
+- It runs `npm run build`, serves `dist` with `vite preview` on a free port (the Vite config
+  gives preview the same `/opendsp-4x4/` base as the Pages build) and opens
   `/opendsp-4x4/?demo` in a fresh profile (default settings: dark theme, metres, empty draft),
   viewport 1280 x 800, device scale factor 1.
 - A cursor dot is drawn by the script into the page so clicks and drags are visible; the app is
