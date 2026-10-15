@@ -5,6 +5,8 @@ export const REPORT_SIZE = 64;
 
 export interface HidLink {
   readonly productName: string;
+  /** True for the built-in demo device: nothing reaches real hardware. */
+  readonly simulated?: boolean;
   /** Extra reply time the transport itself can add (a network hop); default 0. */
   readonly timeoutSlackMs?: number;
   open(): Promise<void>;

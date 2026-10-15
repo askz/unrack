@@ -2,7 +2,7 @@
 // behaviour measured on hardware: queries echo their code (0x27 → 0x24), writes
 // are acked with 0x01, unknown opcodes get 0x02, bad checksums get no reply, and a
 // frame that arrives while the device is still processing the previous one is dropped.
-// Used by the tests, and by dev builds opened with ?mock (UI work without hardware).
+// Used by the tests, and as the base of the demo device (demo.ts).
 import type { HidLink } from "./link.ts";
 import { frameWrap, parseFrame } from "../protocol/frame.ts";
 import { Command, ReplyCode, PRESET_SLOT_COUNT } from "../protocol/commands.ts";
@@ -19,8 +19,13 @@ export interface MockDspOptions {
   latencyMs?: Partial<Record<number, number>>;
 }
 
+export interface MockReply {
+  code: number;
+  data: number[];
+}
+
 export class MockDsp implements HidLink {
-  readonly productName = "Mock DSP";
+  readonly productName: string = "Mock DSP";
   readonly received: Uint8Array[] = [];
   pages: Uint8Array[] = defaultPresetPages();
   presetNames: string[] = Array.from({ length: PRESET_SLOT_COUNT }, () => "Default Preset");
@@ -111,7 +116,7 @@ export class MockDsp implements HidLink {
     return this.received.map((frame) => frame[5] ?? 0);
   }
 
-  private answer(code: number, data: Uint8Array): { code: number; data: number[] } | null {
+  protected answer(code: number, data: Uint8Array): MockReply | null {
     const ascii = (text: string) => Array.from(new TextEncoder().encode(text));
     switch (code) {
       case Command.GET_STATUS: return { code, data: [0x1f] };
