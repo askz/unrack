@@ -1485,7 +1485,7 @@ git commit -m "feat(web): the app is called Unrack"
 - Create: `docs/demo.webp` (the recording)
 
 **Interfaces:**
-- Consumes: the demo on `?demo` (Tasks 4 to 6), the Unrack brand (Task 7), and these existing UI hooks: tabs `[role="tab"][data-view="…"]` (`overview`, `setup`, `4` = Out 1, `system`, `settings`); Overview mute toggles `button[title^="Mute Out 3"]` (prefix match: right after connecting the mute is unknown and the title reads "Mute Out 3: unknown (the device can't report it). Click to set."); EQ handles `role="button"` named `Band 3`; Setup preset select labelled `Preset` with the option "2.1 Outdoor"; layout cards `button.card` (the 2.2 card has the text "Stereo tops and stereo subs"); the time alignment toggle `button[title="Time alignment"]`; the slider named `Alignment point`; the Settings group named `Theme` with buttons `Light` and `Dark`; the banner text "Demo: a simulated DSP".
+- Consumes: the demo on `?demo` (Tasks 4 to 6), the Unrack brand (Task 7), and these existing UI hooks: tabs `[role="tab"][data-view="…"]` (`overview`, `setup`, `4` = Out 1, `system`, `settings`); Overview mute toggles `button[title^="Mute Out3"]` (the names come from the preset image, "Out3" without a space; prefix match because right after connecting the mute is unknown and the title reads "Mute Out3: unknown (the device can't report it). Click to set."); EQ handles `role="button"` named `Band 3`; Setup preset select labelled `Preset` with the option "2.1 Outdoor"; layout cards `button.card` (the 2.2 card has the text "Stereo tops and stereo subs"); the time alignment toggle `button[title="Time alignment"]`; the slider named `Alignment point`; the Settings group named `Theme` with buttons `Light` and `Dark`; the banner text "Demo: a simulated DSP".
 
 - [ ] **Step 1: Preview with the Pages base**
 
@@ -1538,7 +1538,10 @@ import { chromium, type Locator, type Page } from "playwright-core";
 
 const VIEWPORT = { width: 1280, height: 800 };
 const FPS = 12;
-const WEBP_QUALITY = 70;
+// Lossless: the lossy animation encoder keeps the previous frame wherever pixels differ only
+// a little, which leaves ghosts of the last page on the dark, low-contrast panels. With
+// -lossless 1, ffmpeg's -quality is the compression effort, not the image quality.
+const WEBP_EFFORT = 70;
 const WEB_DIR = resolve(import.meta.dirname, "..");
 const OUTPUT = resolve(WEB_DIR, "../docs/demo.webp");
 const BASE_PATH = "/opendsp-4x4/";
@@ -1681,9 +1684,9 @@ async function walkThrough(page: Page): Promise<void> {
   const pointer = new Pointer(page);
   const wait = (ms: number) => page.waitForTimeout(ms);
 
-  await step("Overview: mute and unmute Out 3", async () => {
+  await step("Overview: mute and unmute Out3", async () => {
     await wait(1200);
-    const mute = page.locator('button[title^="Mute Out 3"]').first();
+    const mute = page.locator('button[title^="Mute Out3"]').first();
     await pointer.click(mute);
     await wait(1100);
     await pointer.click(mute);
@@ -1772,7 +1775,7 @@ function resample(frames: Frame[], fps: number): Frame[] {
 function encode(frameDir: string): void {
   const result = spawnSync("ffmpeg", [
     "-hide_banner", "-loglevel", "error", "-y", "-framerate", String(FPS), "-i", join(frameDir, "frame-%05d.png"),
-    "-c:v", "libwebp_anim", "-lossless", "0", "-quality", String(WEBP_QUALITY), "-compression_level", "6", "-loop", "0", OUTPUT,
+    "-c:v", "libwebp_anim", "-lossless", "1", "-quality", String(WEBP_EFFORT), "-compression_level", "6", "-loop", "0", OUTPUT,
   ], { stdio: "inherit" });
   if (result.status !== 0) throw new Error("ffmpeg could not encode the WebP");
 }
@@ -1794,7 +1797,7 @@ async function main(): Promise<void> {
     await page.goto(url);
     await step("open the demo", async () => {
       await page.getByText("Demo: a simulated DSP").waitFor({ timeout: STEP_TIMEOUT_MS });
-      await page.locator('button[title^="Mute Out 3"]').first().waitFor({ timeout: STEP_TIMEOUT_MS });
+      await page.locator('button[title^="Mute Out3"]').first().waitFor({ timeout: STEP_TIMEOUT_MS });
     });
     const stop = await startRecording(page);
     await walkThrough(page);
@@ -1830,7 +1833,7 @@ Expected: the build output, then one line `…/docs/demo.webp: N frames, about 2
 
 - [ ] **Step 6: Check the size and look at it**
 
-If X is above 4 MB, lower `WEBP_QUALITY` by 10 (not below 50) and run Step 5 again; if it is still above 4 MB at 50, report the size instead of going further. Open `docs/demo.webp` in Chrome (`google-chrome-stable docs/demo.webp` or drag it into a tab) and check: it loops; the dot shows each click and drag; all six pages appear in order; the meters move; the dark theme is back at the end.
+If X is above 4 MB, report the size instead of going lossy (lossy WebP leaves ghosts of the previous page; the first lossless run was 0.9 MB). Open `docs/demo.webp` in Chrome (`google-chrome-stable docs/demo.webp` or drag it into a tab) and check: it loops; the dot shows each click and drag; all six pages appear in order; the meters move; the dark theme is back at the end.
 
 - [ ] **Step 7: Commit**
 
