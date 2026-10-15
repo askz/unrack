@@ -6,7 +6,9 @@
 //                         └── error ────┴──────────┴── unplugged / unresponsive ──▶ lost
 //
 // "lost" (and "idle", unless the user disconnected on purpose) re-binds
-// automatically when a granted device is plugged back in.
+// automatically when a granted device is plugged back in. The demo device goes through
+// the same lifecycle, and a picked or plugged-in device replaces it. Where the platform
+// cannot reach devices at all, a session ends in "unsupported" instead of "idle" or "lost".
 import type { HidLink } from "../transport/link.ts";
 import type { LinkProvider } from "../transport/platform.ts";
 import { RequestChannel, ProtocolError, emptyStats, type ChannelStats, type Transaction } from "../transport/channel.ts";
@@ -21,6 +23,8 @@ export interface ConnectionSnapshot {
   productName: string;
   info: DeviceInfo | null;
   stats: ChannelStats;
+  /** The bound device is the demo: nothing reaches real hardware. */
+  simulated: boolean;
 }
 
 export interface SessionHooks {
@@ -40,6 +44,7 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 export class Connection {
   private readonly provider: LinkProvider;
   private readonly hooks: SessionHooks;
+  private readonly demoLink: (() => HidLink) | null;
   private readonly listeners = new Set<(snapshot: ConnectionSnapshot) => void>();
   private state: ConnectionSnapshot;
   private generation = 0;
@@ -51,15 +56,17 @@ export class Connection {
   private userDisconnected = false;
   private consecutiveTimeouts = 0;
 
-  constructor(provider: LinkProvider, hooks: SessionHooks) {
+  constructor(provider: LinkProvider, hooks: SessionHooks, demoLink: (() => HidLink) | null = null) {
     this.provider = provider;
     this.hooks = hooks;
+    this.demoLink = demoLink;
     this.state = {
       phase: provider.supported() ? "idle" : "unsupported",
       error: "",
       productName: "",
       info: null,
       stats: emptyStats(),
+      simulated: false,
     };
   }
 
@@ -72,14 +79,27 @@ export class Connection {
     return this.client;
   }
 
+  /** The platform can reach real devices. */
+  get hardwareSupported(): boolean {
+    return this.provider.supported();
+  }
+
+  /** connectDemo() can bind the demo device here. */
+  get demoAvailable(): boolean {
+    return this.demoLink !== null;
+  }
+
   onChange(listener: (snapshot: ConnectionSnapshot) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
 
-  /** Pick/grant a device and bind it. On desktop this must run inside a user gesture. */
+  /**
+   * Pick/grant a device and bind it. On desktop this must run inside a user gesture.
+   * During the demo the picker comes first: a cancelled pick leaves the demo running.
+   */
   async connect(): Promise<void> {
-    if (this.state.phase === "unsupported") return;
+    if (!this.provider.supported()) return;
     this.userDisconnected = false;
     this.watchAttach();
     let link: HidLink | null;
@@ -92,23 +112,38 @@ export class Connection {
     if (link) await this.bind(link);
   }
 
-  /** Bind an already-granted device without prompting, and auto-bind future plug-ins. */
-  async autoConnect(): Promise<void> {
-    if (this.state.phase === "unsupported") return;
+  /**
+   * Bind an already-granted device without prompting, and auto-bind future plug-ins.
+   * Resolves false only when there is no granted device (an error while looking stays on screen).
+   */
+  async autoConnect(): Promise<boolean> {
+    if (!this.provider.supported()) return false;
     this.watchAttach();
+    let link: HidLink | null;
     try {
-      const link = await this.provider.existing();
-      if (link) await this.bind(link);
+      link = await this.provider.existing();
     } catch (error) {
       this.update({ error: messageOf(error) });
+      return true;
     }
+    if (!link) return false;
+    await this.bind(link);
+    return true;
+  }
+
+  /** Bind the demo device; a granted device plugged in later replaces it. */
+  async connectDemo(): Promise<void> {
+    if (!this.demoLink) return;
+    this.userDisconnected = false;
+    this.watchAttach();
+    await this.bind(this.demoLink());
   }
 
   async disconnect(): Promise<void> {
     this.userDisconnected = true;
     this.generation++;
     await this.endSession();
-    this.update({ phase: "idle", error: "" });
+    this.update({ phase: this.restingPhase("idle"), error: "", simulated: false });
   }
 
   /** Re-read the device state (after a preset recall, or on demand). */
@@ -137,8 +172,8 @@ export class Connection {
   private watchAttach(): void {
     if (this.stopWatchingAttach) return;
     this.stopWatchingAttach = this.provider.onAttach((link) => {
-      const { phase } = this.state;
-      if (this.userDisconnected || (phase !== "idle" && phase !== "lost")) return;
+      const { phase, simulated } = this.state;
+      if (this.userDisconnected || !(simulated || phase === "idle" || phase === "lost")) return;
       void this.bind(link);
     });
   }
@@ -147,7 +182,7 @@ export class Connection {
     const session = ++this.generation;
     await this.endSession();
     this.consecutiveTimeouts = 0;
-    this.update({ phase: "connecting", error: "", info: null, stats: emptyStats() });
+    this.update({ phase: "connecting", error: "", info: null, stats: emptyStats(), simulated: link.simulated === true });
     try {
       await link.open();
       if (session !== this.generation) {
@@ -176,7 +211,7 @@ export class Connection {
       if (session !== this.generation) return;
       this.generation++;
       await this.endSession();
-      this.update({ phase: "idle", error: `Connection failed: ${messageOf(error)}` });
+      this.update({ phase: this.restingPhase("idle"), error: `Connection failed: ${messageOf(error)}`, simulated: false });
     }
   }
 
@@ -184,7 +219,12 @@ export class Connection {
     if (session !== this.generation) return;
     this.generation++;
     await this.endSession();
-    this.update({ phase: "lost", error: reason });
+    this.update({ phase: this.restingPhase("lost"), error: reason, simulated: false });
+  }
+
+  /** Where a session ends: "unsupported" when the platform cannot reach devices (after the demo). */
+  private restingPhase(phase: "idle" | "lost"): ConnectionPhase {
+    return this.provider.supported() ? phase : "unsupported";
   }
 
   private observe(session: number, transaction: Transaction): void {

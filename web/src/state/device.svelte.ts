@@ -126,7 +126,8 @@ export class DeviceStore {
   // --- connection ---
 
   connect(): Promise<void> { return this.connection.connect(); }
-  autoConnect(): Promise<void> { return this.connection.autoConnect(); }
+  /** False when no granted device was found. */
+  autoConnect(): Promise<boolean> { return this.connection.autoConnect(); }
   disconnect(): Promise<void> { return this.connection.disconnect(); }
   clearIssues(): void { this.issues = []; }
 
