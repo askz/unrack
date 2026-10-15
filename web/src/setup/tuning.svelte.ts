@@ -47,6 +47,10 @@ class TuningSession {
         const linked = device.phase === "ready" || device.phase === "syncing";
         if (!linked) untrack(() => this.runner.interrupt());
       });
+      $effect(() => {
+        const simulated = device.simulated;
+        untrack(() => this.runner.useSimulated(simulated));
+      });
     });
   }
 

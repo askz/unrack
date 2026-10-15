@@ -340,3 +340,37 @@ test("no offset change without a session", () => {
   runner.setOffset(1);
   assert.deepEqual(device.calls, []);
 });
+
+test("a session on the demo keeps its snapshot in memory only", async () => {
+  const { runner, storage, state, start } = setup();
+  runner.useSimulated(true);
+  await start();
+  assert.ok(state.running);
+  assert.equal(storage.items.has(TUNING_SESSION_KEY), false);
+  await runner.cancel();
+  assert.equal(storage.items.has(TUNING_SESSION_KEY), false);
+});
+
+test("while the demo runs, a stored interrupted session is set aside, then offered again", async () => {
+  const stored = snapshotOf(defaultModel());
+  const { runner, state, storage, start } = setup(stored);
+  assert.deepEqual(state.interrupted, stored);
+  runner.useSimulated(true);
+  assert.equal(state.interrupted, null);
+  await start();
+  assert.ok(state.running, "the stored session does not block a demo session");
+  await runner.cancel();
+  runner.useSimulated(false);
+  assert.deepEqual(state.interrupted, stored);
+  assert.deepEqual(loadTuningSnapshot(storage), stored);
+});
+
+test("a demo session cut short by the switch to a real device is not offered on it", async () => {
+  const { runner, state, device, start } = setup();
+  runner.useSimulated(true);
+  await start();
+  runner.useSimulated(false);
+  assert.equal(state.running, null);
+  assert.equal(state.interrupted, null);
+  assert.ok(device.calls.includes("end"), "the session's undo group is closed");
+});

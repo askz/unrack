@@ -4,6 +4,7 @@
 // Done keeps the delays and stores the offset in the setup, Cancel puts everything back.
 // A session is one undo step. What it changed stays in storage until the device has
 // confirmed it is put back, so it can still be restored after a reload or a lost link.
+// On the demo device it stays in memory only, and a real device's stored session waits.
 import { TONE_FREQS, ToneSource } from "../protocol/commands.ts";
 import type { DeviceModel } from "../state/model.ts";
 import type { ParamAssignment } from "../state/params.ts";
@@ -74,6 +75,8 @@ export class TuningRunner {
   private readonly storeOffset: TuningRunnerDeps["storeOffset"];
   /** Ends and restores waiting for the device: their outcome decides whether the snapshot is kept. */
   private settling = 0;
+  /** The bound device is the demo. */
+  private simulated = false;
 
   constructor(deps: TuningRunnerDeps) {
     this.device = deps.device;
@@ -83,12 +86,24 @@ export class TuningRunner {
     this.state.interrupted = loadTuningSnapshot(this.storage);
   }
 
+  /**
+   * The bound device became the demo, or stopped being it. A session running on the
+   * previous device ends as interrupted; a demo session is never offered on a real device,
+   * and a real device's interrupted session is set aside (kept in storage) during the demo.
+   */
+  useSimulated(simulated: boolean): void {
+    if (simulated === this.simulated) return;
+    this.interrupt();
+    this.simulated = simulated;
+    this.state.interrupted = simulated ? null : loadTuningSnapshot(this.storage);
+  }
+
   async start(recipe: Recipe, step: TuningStep, upper: number, pairName: string): Promise<void> {
     const { device, state } = this;
     if (state.running || state.interrupted || this.settling > 0 || !device.connected) return;
     const rig = rigOf(recipe);
     const snapshot = snapshotOf(device.model);
-    saveTuningSnapshot(this.storage, snapshot);
+    saveTuningSnapshot(this.store, snapshot);
     const toneIndex = nearestToneIndex(step.crossoverHz);
     const toneHz = TONE_FREQS[toneIndex]!;
     const startMs = rig.alignment.offsetsMs[step.lower] ?? 0;
@@ -144,7 +159,7 @@ export class TuningRunner {
     if (!this.state.interrupted) return;
     if (this.device.connected) void this.device.testTone(ToneSource.OFF);
     this.state.interrupted = null;
-    clearTuningSnapshot(this.storage);
+    clearTuningSnapshot(this.store);
   }
 
   /** The link went away: nothing can be sent, and the readback on reconnect clears the undo group. */
@@ -179,9 +194,11 @@ export class TuningRunner {
 
   /**
    * Tone off, then the restore writes. The snapshot is forgotten only once the device
-   * confirmed both; otherwise the Restore notice comes back.
+   * confirmed both; otherwise the Restore notice comes back (unless the device was swapped meanwhile).
    */
   private async putBack(snapshot: TuningSnapshot, label: string, assignments: ParamAssignment[]): Promise<void> {
+    const store = this.store;
+    const simulated = this.simulated;
     this.settling++;
     try {
       // unmuting while the tone still plays would put it on every routed output
@@ -189,15 +206,20 @@ export class TuningRunner {
       if (!silenced) {
         this.endGroup();
         this.device.report(label, "Could not stop the tone; the other outputs stay muted");
-        this.state.interrupted = snapshot;
+        if (simulated === this.simulated) this.state.interrupted = snapshot;
         return;
       }
       const restored = this.device.applyGroup(label, assignments);
       this.endGroup();
-      if (await restored) clearTuningSnapshot(this.storage);
-      else this.state.interrupted = snapshot;
+      if (await restored) clearTuningSnapshot(store);
+      else if (simulated === this.simulated) this.state.interrupted = snapshot;
     } finally {
       this.settling--;
     }
+  }
+
+  /** Where the session snapshot is kept: nowhere but memory on the demo. */
+  private get store(): StorageLike | null {
+    return this.simulated ? null : this.storage;
   }
 }
