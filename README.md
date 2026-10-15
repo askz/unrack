@@ -8,8 +8,8 @@ USB-OTG, and over Wi-Fi from any browser through an ESP32-S3 plugged into the DS
 > **Only one device is supported today: the t.racks DSP 4x4 Mini Pro.** More DSPs are planned,
 > see [Compatibility](#compatibility) and how to help.
 
-**[Open the web app](https://askz.github.io/opendsp-4x4/)** · plug the DSP in, click *Connect…*.
-No DSP plugged in? It opens a demo with a simulated DSP ([try the demo](https://askz.github.io/opendsp-4x4/?demo)).
+**[Open the web app](https://askz.github.io/unrack/)** · plug the DSP in, click *Connect…*.
+No DSP plugged in? It opens a demo with a simulated DSP ([try the demo](https://askz.github.io/unrack/?demo)).
 
 ![Unrack on the demo device: the Overview with live meters, an output's EQ, Setup with a layout and time alignment, System and Settings](docs/demo.webp)
 
@@ -28,7 +28,7 @@ No DSP plugged in? It opens a demo with a simulated DSP ([try the demo](https://
   [`docs/CAPTURING.md`](docs/CAPTURING.md) walks through it (about 10 minutes, Windows + Wireshark).
 - **Send or lend a device.** Having the hardware on the bench is the fastest way to full support,
   because every parameter can be verified by reading it back.
-  [Open an issue](https://github.com/askz/opendsp-4x4/issues/new) to arrange shipping.
+  [Open an issue](https://github.com/askz/unrack/issues/new) to arrange shipping.
 - **Write code.** Pull requests for new devices, fixes and tests are welcome.
 
 ## Origins
@@ -193,7 +193,7 @@ network-served derivative must publish its source under the same terms.
 
     Unrack, based on openDSP-4x4 (https://github.com/GlassOnTin/opendsp-4x4)
     Copyright (C) 2026 Ian Williams
-    Modified 2026 by askz (https://github.com/askz/opendsp-4x4): renamed to Unrack; new
+    Modified 2026 by askz (https://github.com/askz/unrack): renamed to Unrack; new
     transport, state layer and UI.
 
     This program is free software: you can redistribute it and/or modify it under the

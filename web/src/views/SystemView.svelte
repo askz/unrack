@@ -131,7 +131,7 @@
     <p class="dim">
       Unrack: open-source control software for rack DSPs (today the t.racks DSP 4x4 Mini Pro), built from observed USB traffic.
       Licensed under the <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL-3.0</a>;
-      <a href="https://github.com/askz/opendsp-4x4">source code</a>.
+      <a href="https://github.com/askz/unrack">source code</a>.
       Not affiliated with or endorsed by Thomann.
     </p>
   </Section>

@@ -59,7 +59,7 @@ can line each action up with the bytes on the wire.
 **File → Save As**, choose the **pcapng** format, and save.
 
 ## 5. Send it as a GitHub issue
-[Open a new issue](https://github.com/askz/opendsp-4x4/issues/new) and include:
+[Open a new issue](https://github.com/askz/unrack/issues/new) and include:
 
 - **The capture, zipped.** GitHub won't accept a raw `.pcapng` attachment, but it accepts `.zip` —
   zip the file and drag it into the issue.

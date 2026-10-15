@@ -19,7 +19,7 @@ const FPS = 12;
 const WEBP_EFFORT = 70;
 const WEB_DIR = resolve(import.meta.dirname, "..");
 const OUTPUT = resolve(WEB_DIR, "../docs/demo.webp");
-const BASE_PATH = "/opendsp-4x4/";
+const BASE_PATH = "/unrack/";
 const STEP_TIMEOUT_MS = 5000;
 
 interface Point { x: number; y: number }
