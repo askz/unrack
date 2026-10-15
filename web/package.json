@@ -8,10 +8,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:esp": "node --experimental-strip-types tools/build-esp.ts",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "test": "node --experimental-strip-types --test 'test/*.test.ts'",
-    "hw:smoke": "node --experimental-strip-types tools/hw-smoke.ts"
+    "hw:smoke": "node --experimental-strip-types tools/hw-smoke.ts",
+    "hw:latency": "node --experimental-strip-types tools/latency.ts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.1.1",

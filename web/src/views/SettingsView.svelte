@@ -11,6 +11,8 @@
   import { CHANNEL_COUNT, channelLabel } from "../state/model.ts";
   import { GAIN_RANGE } from "../state/params.ts";
   import Section from "../ui/Section.svelte";
+  import EspSettings from "../esp/EspSettings.svelte";
+  import { bridge } from "../esp/bridge.svelte.ts";
   import Choice from "../ui/Choice.svelte";
   import NumberField from "../ui/NumberField.svelte";
   import Toggle from "../ui/Toggle.svelte";
@@ -92,6 +94,8 @@
     </div>
     <p class="faint">A name replaces the device's name on this screen only (empty = the device's name). Hidden channels stay reachable by their number key or link, and keep working.</p>
   </Section>
+
+  {#if bridge.active}<EspSettings />{/if}
 
   <Section title="Controls">
     <div class="rows">

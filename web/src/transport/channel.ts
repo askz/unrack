@@ -114,7 +114,7 @@ export class RequestChannel {
         frame,
         code,
         coalesceKey: options.coalesceKey,
-        timeoutMs: options.timeoutMs ?? replyTimeoutMs(code),
+        timeoutMs: (options.timeoutMs ?? replyTimeoutMs(code)) + (this.link.timeoutSlackMs ?? 0),
         attempts: options.attempts ?? DEFAULT_ATTEMPTS,
         waiters: [waiter],
       });

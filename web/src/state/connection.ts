@@ -160,7 +160,7 @@ export class Connection {
       this.channel = channel;
       this.client = dsp;
       this.sessionCleanup = [
-        link.onDisconnect(() => void this.lose(session, "Device disconnected")),
+        link.onDisconnect((reason) => void this.lose(session, reason ?? "Device disconnected")),
         channel.onTransaction((transaction) => this.observe(session, transaction)),
       ];
 

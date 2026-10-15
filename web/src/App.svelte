@@ -10,6 +10,8 @@
   import SystemView from "./views/SystemView.svelte";
   import SetupView from "./views/SetupView.svelte";
   import SettingsView from "./views/SettingsView.svelte";
+  import Gate from "./esp/Gate.svelte";
+  import { bridge } from "./esp/bridge.svelte.ts";
   import { tuning } from "./setup/tuning.svelte.ts";
   import { OUT_BASE } from "./state/model.ts";
   import { settings } from "./state/settings.svelte.ts";
@@ -64,14 +66,19 @@
 
 <svelte:window onkeydown={onKeydown} />
 
+{#if bridge.active}<Gate />{/if}
 <TopBar />
 <ChannelTabs />
 
 <main>
   {#if !device.supported}
-    <div class="notice bad">This browser cannot reach USB devices. Use Chrome or Edge on a desktop computer, or the Android app.</div>
+    <div class="notice bad">{bridge.active ? "This browser has no WebSocket support." : "This browser cannot reach USB devices. Use Chrome or Edge on a desktop computer, or the Android app."}</div>
   {:else if device.phase === "lost"}
-    <div class="notice bad">{device.connectionError}. Plug the DSP back in to reconnect automatically, or press Connect.</div>
+    <div class="notice bad">
+      {device.connectionError}.
+      {bridge.active ? "Press Connect to take control (only one browser controls the DSP at a time)." : "Plug the DSP back in to reconnect automatically, or press Connect."}
+      {#if bridge.active}<button class="ghost" onclick={() => device.connect()}>Take control</button>{/if}
+    </div>
   {:else if !device.connected && device.phase !== "syncing"}
     <div class="notice">Offline: edits change this screen only. Connecting loads the device's current settings.</div>
   {/if}

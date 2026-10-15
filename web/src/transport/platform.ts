@@ -3,6 +3,8 @@
 import type { HidLink } from "./link.ts";
 import { NativeLink } from "./native.ts";
 import { WebHidLink } from "./webhid.ts";
+import { WsLink } from "./websocket.ts";
+import { bridgeUrl, fetchSession, isEspTarget } from "../esp/api.ts";
 import { MockDsp } from "./mock.ts";
 import { Command } from "../protocol/commands.ts";
 
@@ -30,6 +32,20 @@ const webHidProvider: LinkProvider = {
   onAttach: (listener) => WebHidLink.onAttach(listener),
 };
 
+/** The ESP32 bridge: the page itself is served by it, so the link is always "granted". */
+async function espLink(): Promise<HidLink> {
+  const session = await fetchSession();
+  if (!session.authenticated || session.passwordChangeRequired) throw new Error("Log in to the ESP32 first");
+  return new WsLink(bridgeUrl(globalThis.location));
+}
+
+const wsProvider: LinkProvider = {
+  supported: () => typeof WebSocket !== "undefined",
+  pick: espLink,
+  existing: espLink,
+  onAttach: () => () => {},
+};
+
 const MOCK_LATENCY_MS = { [Command.RECALL_PRESET]: 660, [Command.STORE_PRESET]: 2200 };
 const MOCK_LEVEL_INTERVAL_MS = 100;
 
@@ -49,5 +65,6 @@ function mockProvider(): LinkProvider {
 
 export function platformLinkProvider(): LinkProvider {
   if (import.meta.env?.DEV && new URLSearchParams(globalThis.location?.search).has("mock")) return mockProvider();
+  if (isEspTarget()) return wsProvider;
   return NativeLink.supported() ? nativeProvider : webHidProvider;
 }

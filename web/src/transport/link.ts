@@ -5,12 +5,14 @@ export const REPORT_SIZE = 64;
 
 export interface HidLink {
   readonly productName: string;
+  /** Extra reply time the transport itself can add (a network hop); default 0. */
+  readonly timeoutSlackMs?: number;
   open(): Promise<void>;
   close(): Promise<void>;
   /** Send one 64-byte output report. Rejects if the OS-level write fails. */
   write(report: Uint8Array): Promise<void>;
   /** Subscribe to every inbound report. Returns an unsubscribe function. */
   onReport(listener: (report: Uint8Array) => void): () => void;
-  /** Subscribe to the device going away (unplugged, permission revoked). */
-  onDisconnect(listener: () => void): () => void;
+  /** Subscribe to the device going away (unplugged, permission revoked, taken over). The reason is shown to the user. */
+  onDisconnect(listener: (reason?: string) => void): () => void;
 }
