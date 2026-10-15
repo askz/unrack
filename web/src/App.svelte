@@ -71,16 +71,32 @@
 <ChannelTabs />
 
 <main>
-  {#if !device.supported}
-    <div class="notice bad">{bridge.active ? "This browser has no WebSocket support." : "This browser cannot reach USB devices. Use Chrome or Edge on a desktop computer, or the Android app."}</div>
+  {#if device.simulated}
+    <div class="notice demo">
+      Demo: a simulated DSP. Nothing here reaches real hardware.
+      {#if device.hardwareSupported}
+        <button class="primary" disabled={device.phase === "connecting"} onclick={() => device.connect()}>Connect DSP…</button>
+      {:else}
+        Connecting a DSP needs Chrome or Edge on a computer, or the Android app.
+      {/if}
+    </div>
+  {:else if !device.supported}
+    <div class="notice bad">
+      {bridge.active ? "This browser has no WebSocket support." : "This browser cannot reach USB devices. Use Chrome or Edge on a desktop computer, or the Android app."}
+      {#if device.demoAvailable}<button class="ghost" onclick={() => device.connectDemo()}>Try the demo</button>{/if}
+    </div>
   {:else if device.phase === "lost"}
     <div class="notice bad">
       {device.connectionError}.
       {bridge.active ? "Press Connect to take control (only one browser controls the DSP at a time)." : "Plug the DSP back in to reconnect automatically, or press Connect."}
       {#if bridge.active}<button class="ghost" onclick={() => device.connect()}>Take control</button>{/if}
+      {#if device.demoAvailable}<button class="ghost" onclick={() => device.connectDemo()}>Try the demo</button>{/if}
     </div>
   {:else if !device.connected && device.phase !== "syncing"}
-    <div class="notice">Offline: edits change this screen only. Connecting loads the device's current settings.</div>
+    <div class="notice">
+      Offline: edits change this screen only. Connecting loads the device's current settings.
+      {#if device.demoAvailable}<button class="ghost" onclick={() => device.connectDemo()}>Try the demo</button>{/if}
+    </div>
   {/if}
 
   {#if ui.view !== "setup" && (tuning.running || (tuning.interrupted && device.connected))}
@@ -121,4 +137,5 @@
   main { flex: 1; min-height: 0; overflow: auto; padding: var(--gap); display: grid; gap: var(--gap); align-content: start; }
   .notice { max-width: 1100px; padding: 6px 10px; border: 1px solid var(--line-strong); border-left: 3px solid var(--warn); border-radius: var(--radius); background: var(--surface); color: var(--text-dim); }
   .notice.bad { border-left-color: var(--bad); }
+  .notice.demo { border-left-color: var(--accent); }
 </style>

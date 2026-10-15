@@ -8,7 +8,7 @@
 </script>
 
 <footer class="statusbar">
-  <span class="item">{PHASE_LABELS[device.phase]}{device.info ? ` · ${device.info.firmware}` : ""}</span>
+  <span class="item">{PHASE_LABELS[device.phase]}{device.simulated ? ` · ${device.productName}` : device.info ? ` · ${device.info.firmware}` : ""}</span>
   {#if device.connected}
     <span class="item num" title="Round trip of the last request">{device.stats.lastDurationMs.toFixed(0)} ms</span>
     <span class="item num" title="Requests / retries / failures">{device.stats.transactions} req · {device.stats.retries} retry · {device.stats.failures} fail</span>

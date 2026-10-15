@@ -17,7 +17,11 @@
   const busy = $derived(!!device.busy);
   const working = $derived(device.phase === "connecting" || device.phase === "syncing" || busy);
   const slotLabel = (index: number) => `${String(index + 1).padStart(2, "0")} ${device.presetNames[index] ?? ""}`.trim();
-  const statusText = $derived(device.busy ? `${device.busy}…` : device.connected ? "Connected" : device.connectionError || PHASE_LABELS[device.phase]);
+  const statusText = $derived(
+    device.busy ? `${device.busy}…`
+      : device.connected ? (device.simulated ? device.productName : "Connected")
+      : device.connectionError || PHASE_LABELS[device.phase],
+  );
   const shortcut = typeof navigator !== "undefined" && /Mac|iP(hone|ad)/.test(navigator.platform) ? "⌘" : "Ctrl+";
 </script>
 
@@ -57,7 +61,11 @@
   <div class="group connection">
     <span class="dot" data-phase={device.phase} class:working></span>
     <span class="status" title={device.info?.firmware ?? statusText}>{statusText}</span>
-    {#if device.connected || device.phase === "syncing"}
+    {#if device.simulated}
+      {#if device.hardwareSupported}
+        <button class="primary" disabled={device.phase === "connecting"} onclick={() => device.connect()}>Connect DSP…</button>
+      {/if}
+    {:else if device.connected || device.phase === "syncing"}
       <button onclick={() => device.disconnect()}>Disconnect</button>
     {:else}
       <button class="primary" disabled={!device.supported || device.phase === "connecting"} onclick={() => device.connect()}>Connect…</button>
