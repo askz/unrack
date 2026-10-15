@@ -1,6 +1,6 @@
 # How the Android app works — a WebView + USB-bridge walkthrough
 
-Unrack runs on Android (the app is still labelled openDSP-4x4 on the phone) by **wrapping the
+Unrack runs on Android (app ID `io.github.askz.unrack`) by **wrapping the
 existing web app in a thin WebView** and handing
 it a small native USB pipe. This page explains why, and walks through the pieces. It doubles as
 a reusable recipe for getting any WebHID/WebUSB app onto a phone when the browser can't reach
@@ -83,7 +83,7 @@ That's the whole interface. The Kotlin side is a *dumb byte pipe* — it knows n
 protocol.
 
 **Preset files** need two more small pieces, because a WebView neither downloads blobs nor opens
-a file picker by itself ([`FileBridge.kt`](android/app/src/main/java/net/opendsp/x4x4/FileBridge.kt)):
+a file picker by itself ([`FileBridge.kt`](android/app/src/main/java/io/github/askz/unrack/FileBridge.kt)):
 `window.AndroidFiles.save(name, mimeType, text)` opens the system "save as" dialog (Storage
 Access Framework) and writes the document, and a `WebChromeClient.onShowFileChooser` makes
 `<input type="file">` work for import. [`files.ts`](web/src/ui/files.ts) picks the bridge when
@@ -93,16 +93,16 @@ it is present.
 
 Four small files (the fourth, `FileBridge.kt`, is the preset-file bridge above):
 
-- **[`MainActivity.kt`](android/app/src/main/java/net/opendsp/x4x4/MainActivity.kt)** — a
+- **[`MainActivity.kt`](android/app/src/main/java/io/github/askz/unrack/MainActivity.kt)** — a
   full-screen WebView that serves the bundled UI from
   `https://appassets.androidplatform.net/assets/www/` via `WebViewAssetLoader` (offline, and
   avoids `file://` quirks). Wires the bridge in with `addJavascriptInterface(bridge, "AndroidUsb")`.
-- **[`UsbHid.kt`](android/app/src/main/java/net/opendsp/x4x4/UsbHid.kt)** — the USB host:
+- **[`UsbHid.kt`](android/app/src/main/java/io/github/askz/unrack/UsbHid.kt)** — the USB host:
   enumerate by VID/PID (`0x0168` / `0x0821`) → runtime permission → `openDevice` →
   `claimInterface(force = true)` (this detaches the kernel HID driver) → interrupt endpoints
   OUT `0x02` / IN `0x81`. A daemon read thread loops on `bulkTransfer` (Android services
   interrupt endpoints through it too) and forwards each report.
-- **[`Bridge.kt`](android/app/src/main/java/net/opendsp/x4x4/Bridge.kt)** — the
+- **[`Bridge.kt`](android/app/src/main/java/io/github/askz/unrack/Bridge.kt)** — the
   `@JavascriptInterface` methods, base64 ⇄ bytes, and `evaluateJavascript` to push reports/state
   back to the page.
 
@@ -142,7 +142,9 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds a debug APK f
 to `main` and every pull request. Releases are automated. Tag `vX.Y.Z` and
 [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml) verifies the web
 bundle (typecheck + tests), assembles a **signed** APK (keystore from repo secrets, with a
-debug-key fallback so it still builds without them), and publishes a GitHub Release. The signing
+debug-key fallback so it still builds without them), and publishes a GitHub Release whose notes
+are the tag's section of [`CHANGELOG.md`](CHANGELOG.md). Bump `versionCode` / `versionName` in
+`android/app/build.gradle.kts` and add the changelog section in the commit you tag. The signing
 secret names are in the workflow header.
 
 ## Gotchas worth knowing
@@ -159,7 +161,8 @@ secret names are in the workflow header.
 
 ## Status
 
-Verified end-to-end on a Pixel 8 Pro over USB-OTG: attach → permission → version handshake
-(`4x4MINIPRO V010`) → full state readback/hydrate → preset recall, routing and live meters.
-Latest release: `v0.2.2`. Hot-unplug is reported through `__dsp_onState(false)` (detach receiver)
+Upstream's openDSP-4x4 `v0.2.2` was verified end-to-end on a Pixel 8 Pro over USB-OTG: attach →
+permission → version handshake (`4x4MINIPRO V010`) → full state readback/hydrate → preset
+recall, routing and live meters. Unrack `v1.0.0` keeps the same Kotlin bridge but has not been
+tested on a phone yet. Hot-unplug is reported through `__dsp_onState(false)` (detach receiver)
 and moves the connection to "lost"; replugging re-binds via the attach intent.

@@ -1,4 +1,4 @@
-package net.opendsp.x4x4
+package io.github.askz.unrack
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -28,7 +28,7 @@ class UsbHid(
     companion object {
         const val VENDOR_ID = 0x0168
         const val PRODUCT_ID = 0x0821
-        private const val ACTION_PERMISSION = "net.opendsp.x4x4.USB_PERMISSION"
+        private const val ACTION_PERMISSION = "io.github.askz.unrack.USB_PERMISSION"
         private const val TAG = "UsbHid"
         private const val REPORT_LEN = 64   // 64-byte interrupt reports
         private const val IO_TIMEOUT = 200  // ms per bulkTransfer

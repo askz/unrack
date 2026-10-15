@@ -4,17 +4,17 @@ plugins {
 }
 
 android {
-    namespace = "net.opendsp.x4x4"
+    namespace = "io.github.askz.unrack"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "net.opendsp.x4x4"
+        applicationId = "io.github.askz.unrack"
         minSdk = 24
         targetSdk = 35
         // Version lives in source so any build (CI, F-Droid, local) is deterministic
         // and reproducible — bump these per release, in the same commit you tag.
-        versionCode = 6
-        versionName = "0.2.2"
+        versionCode = 7
+        versionName = "1.0.0"
     }
 
     // Don't embed AGP's dependency-metadata signing block — F-Droid rejects it

@@ -12,5 +12,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "openDSP-4x4"
+rootProject.name = "Unrack"
 include(":app")

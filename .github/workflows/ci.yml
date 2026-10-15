@@ -56,5 +56,5 @@ jobs:
         run: ./gradlew --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: opendsp-4x4-debug-apk
+          name: unrack-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk

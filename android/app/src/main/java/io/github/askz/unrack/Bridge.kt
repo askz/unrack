@@ -1,4 +1,4 @@
-package net.opendsp.x4x4
+package io.github.askz.unrack
 
 import android.util.Base64
 import android.webkit.JavascriptInterface
