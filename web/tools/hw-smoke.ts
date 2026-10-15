@@ -1,7 +1,9 @@
 // Hardware smoke test: runs the production transport stack (RequestChannel, Dsp,
-// Connection) against a real DSP 4x4 Mini Pro through Linux hidraw.
+// Connection) against a real DSP 4x4 Mini Pro through Linux hidraw, or through the
+// ESP32 bridge over Wi-Fi.
 //
 //   npm run hw:smoke -- /dev/hidrawN
+//   OPENDSP_TOKEN=… npm run hw:smoke -- ws://opendsp.local/ws
 //
 // It changes Out 1 gain and several EQ/dynamics/routing parameters during the test
 // and restores them (undo), then re-recalls the active preset (discarding unsaved
@@ -17,14 +19,14 @@ import { Editor, createEditorState } from "../src/state/editor.ts";
 import { modelFromReadback } from "../src/state/hydrate.ts";
 import { sameValue, type DeviceModel } from "../src/state/model.ts";
 import { paramKey, readParam, type ParamRef, type ParamValue } from "../src/state/params.ts";
-import { HidrawLink } from "./hidraw-link.ts";
+import { TARGET_USAGE, linkFor } from "./links.ts";
 
 const OUT1 = 0x04;
 const RAMP_STEPS = 60;
 
-const devicePath = process.argv[2];
-if (!devicePath) {
-  console.error("usage: hw-smoke <hidraw device path>");
+const target = process.argv[2];
+if (!target) {
+  console.error(`usage: hw-smoke ${TARGET_USAGE}`);
   process.exit(2);
 }
 
@@ -43,8 +45,8 @@ async function out1GainDb(dsp: Dsp): Promise<number> {
 async function main(): Promise<void> {
   const provider: LinkProvider = {
     supported: () => true,
-    pick: async () => new HidrawLink(devicePath!),
-    existing: async () => new HidrawLink(devicePath!),
+    pick: async () => linkFor(target!),
+    existing: async () => linkFor(target!),
     onAttach: () => () => {},
   };
   let syncMs = 0;
