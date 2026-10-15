@@ -46,14 +46,15 @@ Strings in the image include the version strings above, `"4x4D Amplifier"`,
 `"Redx-SapphireIII"` and `"Default Preset"`.
 
 ### DSP image and the audio DSP
-The second payload is the **program image for a separate audio DSP**, not the MCU. The DSP runs
-its own program, which it loads from an I2C EEPROM at power-up. The MCU computes all filter
-coefficients itself (RBJ biquad math in IEEE double at `0x3264`) and writes them, together with
-gains and dynamics constants, into the running DSP's parameter memory over a separate serial bus.
+The device has a **separate audio DSP** with its own program, loaded from an I2C EEPROM at power-up.
+The DSP is a **Blackfin** (confirmed from the live boot image, see "The DSP is a Blackfin" below).
+The MCU computes all filter coefficients itself (RBJ biquad math in IEEE double at `0x3264`) and
+writes them, together with gains and dynamics constants, into the DSP's parameter memory
+(`0xFF80_6xxx`, i.e. Blackfin L1 data SRAM) over a separate serial bus.
 
-- **Program image:** 3886 × 32-bit words (15 544 bytes, preceded by a 2-byte big-endian length
-  `0x3cba`). Content ends at byte `0x3b33`; the rest is zero padding. The image is code for a
-  16-bit-granular instruction set, see "Program image structure" below.
+- **Updater payload:** 3886 × 32-bit words (15 544 bytes, preceded by a 2-byte big-endian length
+  `0x3cba`), the blob the updater sends with `0x53`. It is **not** the Blackfin program the DSP
+  actually runs and does not match the live EEPROM (see "The updater payload is not the DSP program").
 - **Converters / rate:** 48 kHz. The teardown (see below) shows TI/Burr-Brown parts: two **PCM5102**
   stereo DACs (the four outputs) and two Burr-Brown PCM-series ADCs (the four inputs), 20-pin TSSOP
   carrying the Burr-Brown oval logo. The spec sheet's "24-bit ADC/DAC" is consistent with these.
@@ -80,6 +81,24 @@ sanded blank** (no recoverable part number), sitting next to the ESMT SDRAM.
   EEPROM, which shares the I2C bus with the MCU.
 - MCU settings and presets live in a second EEPROM at bus address `0xAE` (`sub_1ee4`).
 
+##### Read-back of the live EEPROM (does not match the updater image)
+`sub_6130` fills a 64-byte page buffer from two consecutive blocks (even block → bytes 0–31, odd
+block → bytes 32–63) and writes the page **only on the odd block**. Every reply echoes 32 bytes read
+from the EEPROM first (before any write). So sending **only even block numbers** reads the first half
+of every 64-byte page with no write at all; the payload lands only in RAM.
+
+Reading the EEPROM at `0xA6` this way on the live device (`eeprom_dump.ts`, 512 pages, no writes)
+shows it is a **256 kbit (32 KB) part** (contents repeat every `0x8000`), with data only in
+`0x44–0x1a9f` (`0x40–0x43` read `ff ff ff ff`) and the rest blank `0xff`. That stored content does
+**not** match the updater's DSP image in any byte order (< 3 % of bytes agree, no 24-byte run in
+common), it is denser (entropy 7.0 vs 5.7 bits/byte), and it spans at most ~6.8 KB versus the
+updater image's 15.5 KB. **Open question, important before any reflash:** the live boot image is
+either compressed/encrypted, or a different version than the one bundled in the updater. The
+structural analysis below is of the **updater image**, which is tied to the hardware (its code
+references the same `0x6xxx` parameter addresses the MCU writes), but may not be the byte-for-byte
+image the DSP currently boots. Resolving this needs a full EEPROM dump (second halves require a
+write, so an external programmer) or a controlled reflash-and-reread.
+
 #### Runtime control bus
 Bit-banged from MCU GPIO (block `0x50004280`: `+0x2c` data out, `+0x24` clock, `+0x20` latch,
 `+0x28` data in), MSB first:
@@ -103,16 +122,36 @@ Byte addresses within `0xFF80_xxxx` (32-bit words). Only entries traced to a han
 | `0x6058` / `0x605c` | mute masks (see Mute below) | `sub_2d24` and others |
 | `0x6080 + 4·ch` | input gain, 8.24 | `sub_3f28` |
 | `0x6090 + 4·ch` | output gain, 8.24 | `sub_3f28` |
+| `0x60c0 + 4·in` | input polarity (0/1), inputs 0–3 | `sub_4308` (`0x36`) |
+| `0x60d0 + 4·out` | output polarity (0/1), outputs 0–3 | `sub_4308` (`0x36`) |
+| `0x60e0 + 4·out` | routing input bitmask per output (InA=1, InB=2, InC=4, InD=8) | `sub_41f4` (`0x3a`) |
 | `0x60f0` | coefficient mailbox (below) | `0x2ad4` |
+| `0x6800`/`0x6804` + per channel | compressor / dynamics coefficients, from channel block +0xaa..0xb0 | `sub_3dbc` (`0x30`) |
+| `0x678c` | signal generator / test-tone level | `sub_2cac` (`0x39`), `sub_1688` |
 | `0x63cc + 0xdc·ch` | output high-pass biquads | `0x40a8` → `sub_2eb4`, outputs 0–3 |
 | `0x63f4 + 0xdc·ch` | output low-pass biquads | `0x419c` → `sub_2eb4`, outputs 0–3 |
 | `0x641c + 0xdc·ch + 0x14·band` | PEQ band biquad, 7 bands | `0x42dc`, `0x100c`, `0x2392` |
 | `0x677c + 4·out` | output delay in samples, passed through unchanged from `0x38` | `sub_3ec4` |
 | `0x67bc` | meter block, read with `0xc8` | `0x13b6` |
 
-Also written but not decoded: `0x6048`, `0x60c0`, `0x60d0`, `0x673c`, `0x678c`,
-`0x6800`/`0x6804`, `0x68b0`/`0x68b4`. A channel's filter block is `0xdc` bytes, i.e. 11 biquads of
-5 words: 2 high-pass, 2 low-pass (from the base addresses), then the 7 PEQ bands.
+Also written but not decoded: `0x6048 + 4·in` (input, written by `sub_43d8` only when `sub_1110`
+returns 1), `0x673c` (touched by almost every handler, so likely a global apply/recompute trigger),
+and `0x68b0`/`0x68b4` (`sub_3fbc`, in the level/crossover path). A channel's filter block is `0xdc`
+bytes, i.e. 11 biquads of 5 words: 2 high-pass, 2 low-pass (from the base addresses), then the 7 PEQ
+bands. Three command codes have handlers but are not in the documented set: `0x3b` (`sub_4100`),
+`0x3c` (`sub_3d5c`), `0x3d` (`0x5ecc`); they look like bulk per-channel setters.
+
+Confirmed on hardware (reversible writes to the unused Out 2, reading the `0x40` meter reply, Out 1
+left untouched):
+
+- **Routing** (`0x60e0 + 4·out`) takes effect immediately: routing In A to Out 2 made the Out 2 meter
+  track In A within ~1 dB.
+- The **output meter is post-mix and post-gain**: stepping Out 2's `0x34` level moved its meter by the
+  set amount, and the two-segment gain curve matched the firmware within 0.5 dB from 0 to −20 dB
+  (below that the meter's ~−75 dBFS floor limited the check against the quiet source, so the lower
+  segment stands on the firmware math).
+- **Compressor** (`0x6800`/`0x6804`): a 20:1 compressor at −48 dB on Out 2 cut its meter by ~20 dB
+  relative to In A, versus ~0 dB at the stock 1:1 setting, confirming `sub_3dbc` drives the dynamics.
 
 #### Coefficient mailbox
 Every biquad goes through one 14-halfword write to `0x60f0` (`0x2ad4`):
@@ -140,59 +179,65 @@ All parameters are 32-bit signed fixed-point; the DSP does not take floats. The 
 | `2^31` | 1.31 | dynamics time constants (`0x2bcc`, `0x2ce8`, `0x2dd2`, `0x2e30`) |
 | `2^26` | 6.26 | one site at `0x217e`, not decoded |
 
-#### Program image structure
-- **16-bit instruction unit.** Unrolled loops repeat with periods of 10, 12, 36, 44 and 84 bytes
-  (not multiples of 4), and both halves of every 32-bit word have the same per-bit entropy profile.
-- **Each halfword splits into a 9-bit high field and a 7-bit low field.** The low 7 bits are far
-  from uniform (`0x3f` in 11% of nonzero halfwords, `0x00` 9%, `0x7e` 7%), and runs such as
-  `a8bf a93f a9bf aabf …` step the 9-bit field by one with the low field fixed.
-- **`9e08 xxxx` (171 times) acts as a two-halfword move:** the second halfword is
-  `[9-bit source][7-bit destination]`. Two runs sweep the destination over 0–127 with scattered
-  sources, which looks like the input/output routing compiled into code.
-- **`5ffe` (214 times)** is the most common non-zero halfword and sits in alternate slots of
-  unrolled blocks, like a no-op filler in a two-slot instruction.
-- **The PEQ is visible.** The ~1.4 KB routine at `0x1e2a` reappears at `0x25ce` (`0x7a4` bytes
-  later). Each copy has 7 consecutive 32-byte stages, one per PEQ band. The copies differ in a single
-  operand per stage, and that operand is offset by exactly `0x3d2` = `0x7a4 / 2`, so it is an
-  absolute program address in 16-bit units. Within a copy it steps by −11 per stage (`0x4f6e`,
-  `0x4f63`, … `0x4f2c`). Its values are larger than the image, so program memory must be loaded at
-  an offset; what the operand points to is not resolved.
-- **The first ~2.5 KB** (`0x18–0x9ff`) has a 12-byte period but uses the same halfword vocabulary
-  (`013e`, `063e`, `703f`, `51be`) as the rest, so it is most likely code too rather than a table.
+#### The DSP is a Blackfin (confirmed from the live boot image)
+The code read off the live boot EEPROM (`0xA6`, first halves only, see above) is **Blackfin machine
+code**. This corrects an earlier conclusion in this file that excluded Blackfin; that exclusion was
+drawn from the updater's payload, which is **not** the program the DSP runs (see below).
 
-#### What it is not
-- **Blackfin (the community guess): excluded.** `bfin-elf` objdump gives 28–33% `ILLEGAL`
-  instructions in all four byte orders (le32, be32, halfword-swapped, byte-swapped), for the whole
-  image and for the code region alone. Real Blackfin code decodes at ~1–2% illegal. The guessed
-  ADSP-BF592 also fails on hardware: it is a 64-lead LFCSP (not LQFP), boots from SPI/PPI/UART (not
-  I2C), and has no external memory interface ([ADI EE-351](https://www.manuallib.com/download/pdf11/ANALOG-DEVICES-EE-351-HANDBOOK.PDF)).
-  Coincidentally its L1 data SRAM sits at `0xFF80_0000–0xFF80_7FFF`, the same range as this DSP's
-  parameter space, which may be where the guess came from.
-- **None of ~80 known instruction sets.** Airbus `cpu_rec`, a statistical ISA classifier whose corpus
-  includes Blackfin, TMS320C2x, TMS320C6x, Xtensa, ARM, MIPS and 8051, matches nothing in any byte
-  order. Positive control: it correctly classifies the MCU image as ARM.
-- **SHARC: excluded.** 48-bit instructions, floating-point, larger packages. The sibling t.racks
-  DSP 206 (reported SHARC) has float-dense firmware; this image is fixed-point.
-- **SigmaDSP (ADAU1701 / ADAU145x): excluded.** No external SDRAM interface in a matching package,
-  different control framing and number formats. (The earliest diyAudio guess of an ADAU1701 was by
-  ear only.)
+Evidence, from the `0x44–0x1a9f` region (3392 known bytes = the first 32 of every 64-byte page):
 
-#### Constraints on the part
-A 64-pin package that drives a 16-bit SDRAM (the M12L64164A alone needs about 38 signals: 12
-address, 2 bank, 16 data, 2 mask, 6 control), boots itself over I2C, exposes a synchronous serial
-control port with a `0xFF80_xxxx` parameter space, and has I2S for two ADCs and two DACs. That leaves
-roughly 26 pins for power, ground, crystal, reset, I2C, the control port and I2S, which points to a
-purpose-built audio DSP. The die is deliberately anonymised (every "smart" chip on the board is
-sanded; commodity parts keep their markings). Naming it needs pin tracing against candidate
-datasheets, or decapping.
+- The halfword `0xE1xx` (Blackfin `reg.L/reg.H = imm16`) is **7.4 % of all aligned halfwords** (126
+  of 1696), versus ~0.5 % in random bytes and 0 % in the updater payload in every byte order.
+- Those loads cluster on the pointer registers with matched low-half/high-half counts — P0.L 11 /
+  P0.H 10, P1.L 16 / P1.H 14, P2.L 12 / P2.H 14 — exactly the paired `Px.L=…; Px.H=…` sequences that
+  build a 32-bit pointer.
+- Real control flow is present: 6 × `RTS` (`0x0010`), 12 × `LINK`/`UNLINK` (`0xE8xx`), 27 × `NOP`.
+- Disassembled, short runs read as coherent code, e.g. `P0.L=0xa9a4; P0.H=0x7678; R0.L=0x984;
+  R0.H=0x7638; [P0++]=R0` (load a pointer, load a value, store and post-increment).
+- `bfin-elf` objdump still reports ~20 % `ILLEGAL`, but that is expected: we have only every other
+  32-byte run, so instruction alignment resets wrongly at each page gap. The idiom statistics above
+  do not depend on alignment and are decisive.
 
-A survey of catalog audio DSPs (ADI SHARC, Blackfin, SigmaDSP; Cirrus CS470xx/CS485xx/CS4953xx;
-TI TAS3204/3208; AKM AK7739; Yamaha YSS9xx; NXP DSP563xx; Dream SAM; NJR NJU26100) found none with a
-64-pin package, a 16-bit SDRAM controller and I2C self-boot together. The nearest, TI TAS3204
-(64-pin, I2C EEPROM self-boot), has no SDRAM and uses 48-bit data with 5.23 coefficients. Musicrown's
-own product pages say "SHARC" for their 96 kHz lines (DS4040II, DC48, DMH) but only "32 bit DSP"
-for the 48 kHz DM series this unit belongs to ([DM46](http://en.musicrown-audio.com/a/products/DSPshuzichuliqi/71.html)).
-No public teardown names the part.
+So the community's long-standing guess (a Blackfin, specifically the ADSP-BF592) was right about the
+**instruction set**. The exact part is still open: the pointer constants seen so far build addresses
+like `0x7678_a9a4`, which is not a standard ADI Blackfin memory region, and the parameter space the
+MCU writes is `0xFF80_6xxx` (ADI Blackfin L1 data SRAM is `0xFF80_0000–0xFF80_7FFF`, consistent).
+A 64-pin LQFP with external SDRAM is also not a catalog ADI Blackfin (those are ≥160-pin). The most
+likely reading is a **Blackfin-ISA-compatible part, probably a Chinese clone**, which also fits the
+deliberately sanded top. Confirming the exact part needs the full EEPROM image (second halves need a
+write, so an external programmer) and/or pin tracing.
+
+This is good news for recompiling: Blackfin has a complete open toolchain (`bfin-elf-gcc`, binutils,
+gdb), so we can assemble and compile directly once the full image and its load/entry layout are known.
+
+#### The updater payload is not the DSP program
+The 15.5 KB image embedded in the updater (analysed below) is **not** Blackfin and does **not** match
+the live EEPROM in any byte order (< 3 % of bytes agree, no shared 24-byte run, 0 % `0xE1xx`
+idioms). What it is, and why the updater writes it to the same EEPROM region that holds Blackfin code,
+is unresolved. Candidates: a different/older version, a scrambled or packed container decoded by the
+boot ROM, or a data/parameter blob rather than code. Do not assume flashing it (modified or not) will
+boot until this is resolved.
+
+Structure of the updater payload (kept for reference; relevance to the running DSP is now uncertain):
+
+- **16-bit granular.** Unrolled loops repeat with periods of 10, 12, 36, 44 and 84 bytes, and both
+  halves of every 32-bit word share one per-bit entropy profile.
+- Each halfword looks like a 9-bit high field plus a 7-bit low field; `9e08 xxxx` (171×) reads as a
+  two-halfword move with `[9-bit source][7-bit destination]`, and `5ffe` (214×) as a filler. A ~1.4 KB
+  routine at `0x1e2a` repeats at `0x25ce` with one operand per stage differing by a constant, 7 stages
+  that line up with the 7 PEQ bands. These patterns are self-consistent but have no counterpart in the
+  confirmed Blackfin image, so they describe the payload's own format, whatever that is.
+
+Airbus `cpu_rec` (statistical ISA classifier, ~80 corpora) matches nothing for the updater payload in
+any byte order, while correctly classifying the MCU image as ARM — consistent with the payload not
+being plain code.
+
+#### Other candidates, now moot
+With the ISA confirmed as Blackfin, the earlier survey (SHARC, SigmaDSP, Cirrus, TI TAS3204, AKM,
+Yamaha, NXP, Dream, NJR) is moot. For the record, Musicrown's own pages say "SHARC" for their 96 kHz
+lines (DS4040II, DC48, DMH) but only "32 bit DSP" for the 48 kHz DM series this unit belongs to
+([DM46](http://en.musicrown-audio.com/a/products/DSPshuzichuliqi/71.html)); no public teardown names
+the part, and every "smart" chip on the board is sanded while commodity parts keep their markings.
 
 ### Teardown
 Source: the diyAudio thread *"T.racks 4x4 miniDSP undressed"* (user Turbowatch2, Jan 2023,
