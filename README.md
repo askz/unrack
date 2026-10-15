@@ -189,6 +189,7 @@ components call the store facade and those modules.
 
 ## Repo layout
 
+- [`CHANGELOG.md`](CHANGELOG.md): what changed in each release.
 - [`PROTOCOL.md`](PROTOCOL.md): wire protocol (frame format, commands, data model, timing).
 - [`web/`](web/): protocol codec, transport, state and UI (also bundled into the Android shell).
 - [`android/`](android/): WebView shell + Kotlin USB-host and file bridges.

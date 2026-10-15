@@ -1,13 +1,14 @@
 name: Android release
 
-# Tag a release (e.g. `git tag v0.2.0 && git push --tags`) to build a signed APK
-# and publish it as a GitHub Release. workflow_dispatch builds an APK artifact only.
+# Tag a release (e.g. `git tag -s v1.0.0 && git push origin v1.0.0`) to build a signed
+# APK and publish it as a GitHub Release. The release notes are the tag's section of
+# CHANGELOG.md (`## [1.0.0] - date`). workflow_dispatch builds an APK artifact only.
 #
 # Signing (same convention as iSpindlePlotter/Haven): add repo secrets
 # RELEASE_KEYSTORE_BASE64 / RELEASE_KEYSTORE_PASSWORD / RELEASE_KEY_ALIAS /
 # RELEASE_KEY_PASSWORD for a real release key. Without them the build falls back to
 # the debug key (still installable for sideloading).
-#   keytool -genkeypair -v -keystore release.jks -alias opendsp \
+#   keytool -genkeypair -v -keystore release.jks -alias unrack \
 #     -keyalg RSA -keysize 2048 -validity 10000
 #   base64 -w0 release.jks   # -> RELEASE_KEYSTORE_BASE64
 
@@ -84,16 +85,32 @@ jobs:
       - name: Stage APK
         run: |
           mkdir -p dist
-          cp android/app/build/outputs/apk/release/app-release.apk "dist/opendsp-4x4-${{ steps.ver.outputs.name }}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "dist/unrack-${{ steps.ver.outputs.name }}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: opendsp-4x4-apk
+          name: unrack-apk
           path: dist/*.apk
+
+      - name: Release notes from CHANGELOG.md
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          VERSION: ${{ steps.ver.outputs.name }}
+        run: |
+          awk -v heading="## [$VERSION]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > "${{ runner.temp }}/notes.md"
+          if ! grep -q '[^[:space:]]' "${{ runner.temp }}/notes.md"; then
+            echo "CHANGELOG.md has no section for $VERSION" >&2
+            exit 1
+          fi
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          name: Unrack ${{ steps.ver.outputs.name }}
+          body_path: ${{ runner.temp }}/notes.md
           files: dist/*.apk
-          generate_release_notes: true

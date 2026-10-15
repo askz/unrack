@@ -1,6 +1,6 @@
 {
-  "name": "opendsp-4x4-web",
-  "version": "0.0.1",
+  "name": "unrack-web",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "WebHID control app + protocol codec for the t.racks DSP 4x4 Mini Pro",
