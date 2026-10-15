@@ -8,9 +8,10 @@ USB-OTG, and over Wi-Fi from any browser through an ESP32-S3 plugged into the DS
 > **Only one device is supported today: the t.racks DSP 4x4 Mini Pro.** More DSPs are planned,
 > see [Compatibility](#compatibility) and how to help.
 
-**[Open the web app](https://askz.github.io/opendsp-4x4/)** · plug the DSP in, click *Connect…*
+**[Open the web app](https://askz.github.io/opendsp-4x4/)** · plug the DSP in, click *Connect…*.
+No DSP plugged in? It opens a demo with a simulated DSP ([try the demo](https://askz.github.io/opendsp-4x4/?demo)).
 
-![Unrack: tabbed editor with channel tabs and live meters, an output page with EQ graph, filter table and compressor](docs/screenshot.png)
+![Unrack on the demo device: the Overview with live meters, an output's EQ, Setup with a layout and time alignment, System and Settings](docs/demo.webp)
 
 ## Compatibility
 
@@ -58,6 +59,9 @@ support. Since the fork, the transport, state layer and UI have been rebuilt.
   full live state as JSON and import it back as one undoable change, with strict validation.
 - **Robust connection**: automatic reconnect when a granted device is plugged back in,
   detection of unplugged or unresponsive devices, meters that never delay a user edit.
+- **Demo**: without a DSP the web app runs against a simulated one whose meters follow the
+  gain, mute, routing and test tone, so every page can be tried; *Connect DSP…* switches to
+  the real device.
 - **EQ link** (mirror edits across two outputs) and **copy EQ** between outputs.
 - Keyboard: `0` overview, `1`–`8` channels, `9` system; arrows / PageUp / PageDown / wheel step
   numeric fields (Shift ×10, Alt ×0.1); values accept `1.2k`, `-6,5 dB`, …
@@ -130,8 +134,11 @@ npm test               # unit tests (node --test)
 npm run build
 ```
 
-- **No hardware?** Open the dev server with `?mock` (e.g. `http://localhost:5173/?mock`) to run
-  against a simulated DSP that reproduces the real device's replies and timing.
+- **No hardware?** The web app starts the demo on its own when no granted DSP is plugged in;
+  `?demo` (e.g. `http://localhost:5173/?demo`) forces it. The simulated DSP reproduces the real
+  device's replies and timing.
+- **README animation**: `npm run capture:demo` records `docs/demo.webp` from the demo (needs
+  Chrome or Chromium and ffmpeg with libwebp).
 - **Hardware smoke test (Linux)**: with the DSP plugged in and no browser tab using it,
   `npm run hw:smoke -- /dev/hidrawN` runs the production transport, connection and editor
   against the device through hidraw (find `N` with
@@ -150,7 +157,7 @@ npm run build
 ```
 web/src/
   protocol/   frame codec, command builders, readback decoders, reply rules (pure)
-  transport/  HidLink (WebHID / Android bridge / ESP32 WebSocket / mock) → RequestChannel
+  transport/  HidLink (WebHID / Android bridge / ESP32 WebSocket / demo) → RequestChannel
               (one transaction in flight, reply matching, retries, priority lanes, coalescing)
   dsp.ts      typed client for every command
   state/      connection lifecycle · parameter registry · editor (undo, links, delivery
