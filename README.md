@@ -1,5 +1,13 @@
 # Unrack
 
+> [!WARNING]
+> **Built with heavy use of AI.** Since the fork, most of Unrack's code and docs have been
+> written with LLM coding assistants ("vibe-coded"). It is unit-tested and checked against a
+> real DSP, but expect bugs. Unrack writes settings to a device that drives amplifiers and
+> speakers: a wrong crossover, gain or limiter can damage drivers, amplifiers or hearing. Check
+> your settings at low volume first, and **use it at your own risk**. It comes with no warranty
+> (see the [license](LICENSE)), and the authors are not liable for any damage or loss.
+
 Open-source control software for rack DSPs whose vendor editors are Windows-only. Runs in
 desktop Chrome/Edge over WebHID with nothing to install, on Android phones/tablets over
 USB-OTG, and over Wi-Fi from any browser through an ESP32-S3 plugged into the DSP

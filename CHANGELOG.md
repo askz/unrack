@@ -5,6 +5,14 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [1.0.0] - 2026-10-15
 
+> [!WARNING]
+> **Built with heavy use of AI.** Since the fork, most of Unrack's code and docs have been
+> written with LLM coding assistants ("vibe-coded"). It is unit-tested and checked against a
+> real DSP, but expect bugs. A wrong crossover, gain or limiter can damage drivers, amplifiers
+> or hearing: check your settings at low volume first, and **use it at your own risk**. No
+> warranty (see the [license](https://github.com/askz/unrack/blob/main/LICENSE)); the authors
+> are not liable for any damage or loss.
+
 First release of **Unrack**, a hard fork of [openDSP-4x4](https://github.com/GlassOnTin/opendsp-4x4)
 by Ian Williams ([@GlassOnTin](https://github.com/GlassOnTin)). The protocol research is his; the
 transport, state layer and UI have been rebuilt since `v0.2.2`. Supported device: the t.racks DSP
