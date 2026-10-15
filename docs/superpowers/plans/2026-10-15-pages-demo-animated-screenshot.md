@@ -23,7 +23,7 @@
 - Demo floors: inputs -87 dBFS, outputs -75 dBFS. Test tone on every input: -12 dBFS.
 - The demo preset is the factory image with Out 3 and Out 4 routed from In A + In B (mask 3).
 - Recording: viewport 1280 x 800, device scale factor 1, 12 fps, lossy WebP, looping, output `docs/demo.webp`, target about 3 to 4 MB.
-- Before Task 1 (controller): run `npm run build` and note the size of `dist/assets/index-*.js`, for the comparison in Task 8.
+- Before Task 1 (controller): run `npm run build` and note the size of `dist/assets/index-*.js`, for the comparison in Task 9.
 
 ---
 
@@ -1435,7 +1435,48 @@ git commit -m "feat(web): demo banner, Connect DSP and Try the demo"
 
 ---
 
-### Task 7: Recording `docs/demo.webp`
+### Task 7: App brand "Unrack" (web UI text)
+
+The project is being renamed to Unrack (the user's README change). The recording shows the
+brand, so the visible web UI text changes first. Storage keys, file formats
+(`opendsp-4x4/preset`, `opendsp-4x4/setup`) and their error messages, the Pages URL, Android
+and the ESP32 firmware stay as they are.
+
+**Files:**
+- Modify: `web/src/shell/TopBar.svelte:25`
+- Modify: `web/index.html:6`
+- Modify: `web/src/views/SystemView.svelte:132`
+
+- [ ] **Step 1: Top bar**
+
+Replace `<div class="brand">openDSP <span class="dim">4x4</span></div>` with `<div class="brand">Unrack</div>`.
+
+- [ ] **Step 2: Page title**
+
+Replace `<title>openDSP-4x4 — t.racks DSP 4x4 Mini Pro</title>` with `<title>Unrack · t.racks DSP 4x4 Mini Pro</title>`.
+
+- [ ] **Step 3: About**
+
+Replace
+`      openDSP-4x4 — open-source control software for the t.racks DSP 4x4 Mini Pro, built from observed USB traffic.`
+with
+`      Unrack: open-source control software for rack DSPs (today the t.racks DSP 4x4 Mini Pro), built from observed USB traffic.`
+
+- [ ] **Step 4: Typecheck and build**
+
+Run: `npm run typecheck && npm run build`
+Expected: 0 errors, 0 warnings; build succeeds.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add web/src/shell/TopBar.svelte web/index.html web/src/views/SystemView.svelte
+git commit -m "feat(web): the app is called Unrack"
+```
+
+---
+
+### Task 8: Recording `docs/demo.webp`
 
 **Files:**
 - Modify: `web/vite.config.ts` (preview uses the Pages base)
@@ -1444,7 +1485,7 @@ git commit -m "feat(web): demo banner, Connect DSP and Try the demo"
 - Create: `docs/demo.webp` (the recording)
 
 **Interfaces:**
-- Consumes: the demo on `?demo` (Tasks 4 to 6), and these existing UI hooks: tabs `[role="tab"][data-view="…"]` (`overview`, `setup`, `4` = Out 1, `system`, `settings`); Overview mute toggles `button[title^="Mute Out 3"]` (prefix match: right after connecting the mute is unknown and the title reads "Mute Out 3: unknown (the device can't report it). Click to set."); EQ handles `role="button"` named `Band 3`; Setup preset select labelled `Preset` with the option "2.1 Outdoor"; layout cards `button.card` (the 2.2 card has the text "Stereo tops and stereo subs"); the time alignment toggle `button[title="Time alignment"]`; the slider named `Alignment point`; the Settings group named `Theme` with buttons `Light` and `Dark`; the banner text "Demo: a simulated DSP".
+- Consumes: the demo on `?demo` (Tasks 4 to 6), the Unrack brand (Task 7), and these existing UI hooks: tabs `[role="tab"][data-view="…"]` (`overview`, `setup`, `4` = Out 1, `system`, `settings`); Overview mute toggles `button[title^="Mute Out 3"]` (prefix match: right after connecting the mute is unknown and the title reads "Mute Out 3: unknown (the device can't report it). Click to set."); EQ handles `role="button"` named `Band 3`; Setup preset select labelled `Preset` with the option "2.1 Outdoor"; layout cards `button.card` (the 2.2 card has the text "Stereo tops and stereo subs"); the time alignment toggle `button[title="Time alignment"]`; the slider named `Alignment point`; the Settings group named `Theme` with buttons `Light` and `Dark`; the banner text "Demo: a simulated DSP".
 
 - [ ] **Step 1: Preview with the Pages base**
 
@@ -1800,7 +1841,10 @@ git commit -m "feat(web): record the README animation from the demo (npm run cap
 
 ---
 
-### Task 8: README, and the checks before pushing
+### Task 9: README, and the checks before pushing
+
+The user commits their README rename first; these edits go on top of it. If `README.md` still
+has uncommitted changes when this task starts, stop and ask.
 
 **Files:**
 - Modify: `README.md`
@@ -1818,10 +1862,8 @@ with
 No DSP plugged in? It opens a demo with a simulated DSP ([try the demo](https://askz.github.io/opendsp-4x4/?demo)).
 ```
 
-Replace the image line
-`![openDSP-4x4: tabbed editor with channel tabs and live meters, an output page with EQ graph, filter table and compressor](docs/screenshot.png)`
-with
-`![openDSP-4x4 on the demo device: the Overview with live meters, an output's EQ, Setup with a layout and time alignment, System and Settings](docs/demo.webp)`
+Replace the image line (the one ending in `(docs/screenshot.png)`) with
+`![Unrack on the demo device: the Overview with live meters, an output's EQ, Setup with a layout and time alignment, System and Settings](docs/demo.webp)`
 
 In "Features", after the "Robust connection" bullet add:
 
